@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import org.github.daymon.commands.main.`fun`.Ask
 import org.github.daymon.commands.main.misc.Ping
+import org.github.daymon.commands.main.money.Economy
 import org.github.daymon.commands.main.money.Security
 import org.github.daymon.commands.sub.money.SecurityPrice
 import org.github.daymon.internal.command.AbstractCommand
@@ -29,7 +30,8 @@ class CommandHandler : CoroutineEventListener {
         val commandList = arrayOf(
             Ping(),
             Security(),
-            Ask()
+            Ask(),
+            Economy()
         )
 
         commandList.forEach { cmd ->
