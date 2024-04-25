@@ -15,20 +15,10 @@ import kotlin.time.Duration.Companion.minutes
 
 
 fun main() {
-    val commandHandler = CommandHandler()
+    val commandHandler = CommandHandler
     val cfgHandler = ConfigHandler
 
-
-    println(
-        cfgHandler.config
-    )
-
-
-
-
-
-
-    light(cfgHandler.config.token, intents = defaultIntents, enableCoroutines = false) {
+    light(cfgHandler.config.token, intents = defaultIntents, enableCoroutines = true) {
         enableCache(emptySet())
         setEventManager(CoroutineEventManager())
         addEventListeners(commandHandler)

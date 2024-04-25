@@ -21,7 +21,7 @@ import org.github.daymon.internal.command.CommandEvent
 import kotlin.math.log
 
 
-class CommandHandler : CoroutineEventListener {
+object CommandHandler : CoroutineEventListener {
 
     private val scope = getDefaultScope()
     private val logger by SLF4J
