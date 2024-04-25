@@ -9,7 +9,9 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import org.github.daymon.commands.main.`fun`.Ask
+import org.github.daymon.commands.main.misc.Leetify
 import org.github.daymon.commands.main.misc.Ping
+import org.github.daymon.commands.main.money.Crypto
 import org.github.daymon.commands.main.money.Economy
 import org.github.daymon.commands.main.money.Security
 import org.github.daymon.commands.sub.money.SecurityPrice
@@ -31,7 +33,9 @@ class CommandHandler : CoroutineEventListener {
             Ping(),
             Security(),
             Ask(),
-            Economy()
+            Crypto(),
+            Economy(),
+            Leetify()
         )
 
         commandList.forEach { cmd ->

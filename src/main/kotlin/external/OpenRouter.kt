@@ -72,8 +72,6 @@ object OpenRouter {
 
 
     suspend fun list(): ListModelResponse {
-
-        // if list in cache return it
         if (cache.containsKey("list")) {
             return cache["list"] as ListModelResponse
         }
@@ -87,7 +85,6 @@ object OpenRouter {
             throw IllegalStateException("Failed to get list of models from OpenRouter")
         }
 
-        // cache the list
 
         val body =  response.body<ListModelResponse>()
         cache["list"] = body

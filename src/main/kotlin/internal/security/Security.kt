@@ -1,138 +1,115 @@
 package org.github.daymon.internal.security
 
-import com.crazzyghost.alphavantage.AlphaVantage
-import com.crazzyghost.alphavantage.Config
-import com.crazzyghost.alphavantage.parameters.Interval
-import com.crazzyghost.alphavantage.parameters.OutputSize
 import dev.minn.jda.ktx.messages.Embed
 import net.dv8tion.jda.api.entities.MessageEmbed
-import org.github.daymon.handler.ConfigHandler
+import org.github.daymon.external.TwelveData
 
 
-data class SecurityOverview(
-    val ticker: String,
-    val open: Double,
-    val high: Double,
-    val low: Double,
-    val close: Double,
-    val volume: Long,
-    val adjustedClose: Double,
-    val dividendAmount: Double,
-    val splitCoefficient: Double
-)
 class Security(
     val ticker: String
 ) {
 
-    init {
-        val configHandler = ConfigHandler
-        val cfg = Config.builder()
-            .key(configHandler.config.alphaVantageApiKey)
-            .timeOut(45)
-            .build()
-        AlphaVantage.api().init(cfg)
-    }
+
 
     private val sadWojak = "https://upload.montague.im/u/UWE27F.png"
     private val happyWojak = "https://upload.montague.im/u/jYWurg.png"
 
 
-    fun asEmbed(): MessageEmbed  {
-        if (overview == null) {
+    suspend fun asEmbed(): MessageEmbed {
+        val quote = TwelveData.quote(ticker)
+
+
+        if (quote.symbol == null) {
             return Embed {
-                title = "Security Overview"
+                title = "Error"
+                description = "Could not find a security with the symbol $ticker"
                 color = 0xFF0000
                 thumbnail = sadWojak
-                field {
-                    name = "Ticker"
-                    value = ticker
-                    inline = true
-                }
-                field {
-                    name = "Error"
-                    value = "No data found for $ticker"
-                    inline = true
-                }
             }
         }
+
         return Embed {
-            title = "Security Overview"
-            color = if (overview!!.close > overview!!.open) 0x00FF00 else 0xFF0000
-            thumbnail = if (overview!!.close > overview!!.open) happyWojak else sadWojak
+            title = "${quote.symbol} (${quote.exchange})"
+            color = if (quote.open!!.toDouble() < quote.close!!.toDouble()) 0x00FF00 else 0xFF0000
+            thumbnail = if (quote.open!!.toDouble() < quote.close!!.toDouble()) happyWojak else sadWojak
+
             field {
-                name = "Ticker"
-                value = ticker
+                name = "Volume"
+                value = quote.volume.toString()
                 inline = true
             }
+
+            field {
+                name = "Change"
+                value = quote.change.toString()
+                inline = true
+            }
+
             field {
                 name = "Open"
-                value = overview!!.open.toString()
+                value = quote.open.toString()
                 inline = true
             }
             field {
                 name = "High"
-                value = overview!!.high.toString()
+                value = quote.high.toString()
                 inline = true
             }
             field {
                 name = "Low"
-                value = overview!!.low.toString()
+                value = quote.low.toString()
                 inline = true
             }
             field {
-                name = "Close"
-                value = overview!!.close.toString()
+                name = "Previous Close"
+                value = quote.previousClose.toString()
                 inline = true
             }
             field {
                 name = "Volume"
-                value = overview!!.volume.toString()
-                inline = true
-            }
-            field {
-                name = "Adjusted Close"
-                value = overview!!.adjustedClose.toString()
-                inline = true
-            }
-            field {
-                name = "Dividend Amount"
-                value = overview!!.dividendAmount.toString()
-                inline = true
-            }
-            field {
-                name = "Split Coefficient"
-                value = overview!!.splitCoefficient.toString()
+                value = quote.volume.toString()
                 inline = true
             }
         }
+
     }
+    suspend fun asEarningsCalenderPaginator(): List<MessageEmbed> {
+        val earnings = TwelveData.earningsCalender(ticker)
 
-    private val overview: SecurityOverview?
-        get() {
-            val response = AlphaVantage.api()
-                .timeSeries()
-                .intraday()
-                .forSymbol(ticker)
-                .interval(Interval.FIVE_MIN)
-                .outputSize(OutputSize.FULL)
-                .fetchSync();
-
-            if (response.stockUnits.isEmpty()) return null
-
-            return SecurityOverview(
-                ticker = ticker,
-                open = response.stockUnits[0].open,
-                high = response.stockUnits[0].high,
-                low = response.stockUnits[0].low,
-                close = response.stockUnits[0].close,
-                volume = response.stockUnits[0].volume,
-                adjustedClose = response.stockUnits[0].adjustedClose,
-                dividendAmount = response.stockUnits[0].dividendAmount,
-                splitCoefficient = response.stockUnits[0].splitCoefficient
-            )
+        if (earnings.meta == null) {
+            return listOf(Embed {
+                title = "Error"
+                description = "Could not find a security with the symbol $ticker"
+                color = 0xFF0000
+                thumbnail = sadWojak
+            })
         }
 
+        val pages = earnings.earnings.map {
+            Embed {
+                title = it.date
+                color = if (it.epsActual!! > it.epsEstimate!!) 0x00FF00 else 0xFF0000
+                thumbnail = if (it.epsActual!! > it.epsEstimate!!) happyWojak else sadWojak
 
+                field {
+                    name = "EPS Estimate"
+                    value = it.epsEstimate.toString()
+                    inline = true
+                }
+                field {
+                    name = "Reported EPS"
+                    value = it.epsActual.toString()
+                    inline = true
+                }
+                field {
+                    name = "Surprise Percent"
+                    value = it.surprisePrc.toString()
+                    inline = true
+                }
 
+            }
+        }
+        return pages
 
+    }
 }

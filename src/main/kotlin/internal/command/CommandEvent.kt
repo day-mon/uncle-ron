@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping
 import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 import org.github.daymon.ext.empty
 import org.github.daymon.ext.replyEmbed
+import org.github.daymon.internal.misc.Pagable
 import java.util.*
 
 
@@ -25,6 +26,7 @@ class CommandEvent(
     val member = slashEvent.member!!
     val hook = slashEvent.hook
     val options: MutableList<OptionMapping> = slashEvent.options
+
 
 
     fun replyMessage(message: String) = when  {

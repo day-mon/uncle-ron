@@ -13,7 +13,8 @@ data class Config(
     val developerIds: List<String>,
     val token: String,
     val openRouterApiKey: String,
-    val alphaVantageApiKey: String
+    val twelveDataApiKey: String,
+    val leetifyPassword: String
 
 )
 
@@ -40,7 +41,8 @@ object ConfigHandler
                     token = "token",
                     developerIds = listOf("-1".repeat(3)),
                     openRouterApiKey = "",
-                    alphaVantageApiKey = ""
+                    twelveDataApiKey = "",
+                    leetifyPassword = ""
                 )
             )
             configFile.writeText(defaultValues)

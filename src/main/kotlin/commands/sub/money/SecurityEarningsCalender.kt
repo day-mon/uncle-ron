@@ -6,10 +6,9 @@ import org.github.daymon.internal.command.CommandOptionData
 import org.github.daymon.internal.command.SubCommand
 import org.github.daymon.internal.security.Security
 
-
-class SecurityPrice : SubCommand(
-    name = "price",
-    description = "Gives a price of a given security",
+class SecurityEarningsCalender : SubCommand(
+    name = "earnings",
+    description = "Gives a earnings calender of a given security",
     deferredReplyEnabled = true,
 
     options = listOf(
@@ -20,18 +19,13 @@ class SecurityPrice : SubCommand(
             isRequired = true
         )
     )
-)
-{
-    override suspend fun onExecuteSuspend(event: CommandEvent)
-    {
+) {
+    override suspend fun onExecuteSuspend(event: CommandEvent) {
         val security = Security(
-            event.getOption("security_symbol")?.asString ?: return event.replyMessage("You must provide a security symbol.")
+            event.getOption("security_symbol")?.asString
+                ?: return event.replyMessage("You must provide a security symbol.")
         )
-        event.replyEmbed(
-            security.asEmbed()
-        )
-
+        val earningsCalender = security.asEarningsCalenderPaginator()
+        event.replyMessage("s")
     }
-
-
 }

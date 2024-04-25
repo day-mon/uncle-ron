@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType
 import org.github.daymon.ext.replyChoiceAndLimit
 import org.github.daymon.external.ChatInteractionResponse
 import org.github.daymon.external.OpenRouter
+import org.github.daymon.external.Pastecord
 import org.github.daymon.internal.command.Command
 import org.github.daymon.internal.command.CommandEvent
 import org.github.daymon.internal.command.CommandOptionData
@@ -37,7 +38,7 @@ class Ask : Command(
         val client = OpenRouter
 
         val response: ChatInteractionResponse = try { client.chat(
-            model=event.getOption("model")?.asString ?: return event.replyMessage("You must provide a model."),
+            model= event.getOption("model")?.asString ?: return event.replyMessage("You must provide a model."),
             prompt = event.getOption("prompt")?.asString ?: return event.replyMessage("You must provide a prompt.")
         ) } catch (e: Exception) {
             event.logger.error("An error occurred while trying to get a response.", e)
@@ -47,7 +48,15 @@ class Ask : Command(
 
         val responseMessage = response.choices[0].message.content
         if ((responseMessage?.length ?: 0) > 2000) {
-            return event.replyMessage("The response is too long to send.")
+            val pastecordClient = Pastecord
+            val uploadKey = try {
+                pastecordClient.upload(responseMessage!!)
+            } catch (e: Exception) {
+                event.logger.error("An error occurred while trying to upload the response to pastecord.", e)
+                return event.replyMessage("An error occurred while trying to upload the response to pastecord.")
+            }
+
+            return event.replyMessage("The response was too long, so it has been uploaded to pastecord: https://pastecord.com/$uploadKey")
         }
 
 
