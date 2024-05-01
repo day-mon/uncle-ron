@@ -1,23 +1,35 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
+
+group = "org.github.daymon"
+version = "1.0"
 
 
 plugins {
     kotlin("jvm") version "1.9.23"
     kotlin("plugin.serialization") version "1.9.22"
+    application
     id("com.github.johnrengelman.shadow") version "7.1.1"
-
 }
 
-group = "org.github.daymon"
-version = "1.0-SNAPSHOT"
+application {
+    mainClass.set("org.github.daymon.MainKt")
+}
 
 
+shadow {
+    archivesName = "UncleRon.jar"
+}
 
 
 repositories {
     mavenCentral()
     maven(url = "https://jitpack.io")
+}
 
-
+// create a tasks that cleans then shadowJars
+tasks.create("build-jar") {
+    dependsOn("clean")
+    dependsOn("shadowJar")
 }
 
 dependencies {

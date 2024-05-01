@@ -28,6 +28,4 @@ object TwitterLinkConverter : CoroutineEventListener {
         val fixedUrl = path.replace(url.host, "fixupx.com")
         event.channel.sendMessage("Fixed URL: $fixedUrl").queue()
     }
-
-
 }

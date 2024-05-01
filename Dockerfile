@@ -33,7 +33,10 @@ COPY . /home/uncle-ron
 WORKDIR /home/uncle-ron
 
 # Jars project
-RUN gradle bootJar -i --stacktrace
+RUN gradle build-jar -i --stacktrace
+
+RUN cp /home/uncle-ron/build/libs/UncleRon*.jar /home/uncle-ron/build/libs/app.jar
+
 
 # Downloads java
 FROM  openjdk:21-slim
@@ -45,7 +48,6 @@ USER root
 WORKDIR /home/uncle-ron
 
 # Copies jar from builder build steps
-COPY --from=builder /home/uncle-ron/build/libs/UncleRon.jar ./app.jar
-
+COPY --from=builder /home/uncle-ron/build/libs/app.jar ./app.jar
 # Runs.. :)
 ENTRYPOINT java -jar -Xmx2G app.jar
