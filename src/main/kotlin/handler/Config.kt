@@ -23,7 +23,7 @@ private const val CONFIG_NAME = "config.json"
 
 object ConfigHandler
 {
-    private val formatter = Json { prettyPrint = true; isLenient = true }
+    private val formatter = Json { prettyPrint = true; ignoreUnknownKeys = true}
     private val logger by SLF4J
     val config = initConfig()
 
