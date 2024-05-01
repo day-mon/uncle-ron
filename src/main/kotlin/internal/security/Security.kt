@@ -2,13 +2,13 @@ package org.github.daymon.internal.security
 
 import dev.minn.jda.ktx.messages.Embed
 import net.dv8tion.jda.api.entities.MessageEmbed
+import org.github.daymon.ext.formatComma
 import org.github.daymon.external.TwelveData
 
 
 class Security(
     val ticker: String
 ) {
-
 
 
     private val sadWojak = "https://upload.montague.im/u/UWE27F.png"
@@ -35,44 +35,45 @@ class Security(
 
             field {
                 name = "Volume"
-                value = quote.volume.toString()
+                value = quote.volume?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
 
             field {
                 name = "Change"
-                value = quote.change.toString()
+                value = quote.change?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
 
             field {
                 name = "Open"
-                value = quote.open.toString()
+                value = quote.open?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
             field {
                 name = "High"
-                value = quote.high.toString()
+                value = quote.high?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
             field {
                 name = "Low"
-                value = quote.low.toString()
+                value = quote.low?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
             field {
                 name = "Previous Close"
-                value = quote.previousClose.toString()
+                value = quote.previousClose?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
             field {
                 name = "Volume"
-                value = quote.volume.toString()
+                value = quote.volume?.toBigDecimal()?.formatComma() ?: "N/A"
                 inline = true
             }
         }
 
     }
+
     suspend fun asEarningsCalenderPaginator(): List<MessageEmbed> {
         val earnings = TwelveData.earningsCalender(ticker)
 

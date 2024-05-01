@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback
 import net.dv8tion.jda.api.interactions.commands.Command
+import java.math.BigDecimal
 import java.util.*
 
 
@@ -28,6 +29,11 @@ fun <T: IReplyCallback> T.replyEmbed(embed: MessageEmbed, content: String = Stri
     }
 }
 
+
+fun BigDecimal.formatComma(): String {
+    val formatter = java.text.DecimalFormat("#,###.00")
+    return formatter.format(this)
+}
 private const val interactionLimit: Int = 25
 fun CommandAutoCompleteInteractionEvent.replyChoiceAndLimit(commands: Collection<Command.Choice>) = this.replyChoices(
     commands
