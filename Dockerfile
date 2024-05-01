@@ -1,7 +1,7 @@
 # Caching: https://stackoverflow.com/questions/58593661/slow-gradle-build-in-docker-caching-gradle-build
 
 # Downloads gradle w/ java
-FROM gradle:7.4.2-jdk18  as cache
+FROM gradle:8.5-jdk-alpine as cache
 
 # Creates cache home
 RUN mkdir -p /home/gradle/cache_home
@@ -20,7 +20,7 @@ RUN gradle clean build -i --stacktrace
 
 
 # Downloads gradle w/ java
-FROM gradle:7.4.2-jdk18  as builder
+FROM gradle:8.5-jdk-alpine as builder
 
 # Copies depenencies to actual GRADLE_USER_HOME so it doesnt need to redownload here...
 # Normal GRADLE_USER_HOME = /home/gradle/.gradle. Its changed so you wont need to have gradle installed for it to persist
@@ -36,7 +36,7 @@ WORKDIR /home/uncle-ron
 RUN gradle bootJar -i --stacktrace
 
 # Downloads java
-FROM  openjdk:18-slim
+FROM  openjdk:21-slim
 
 # Sets user to root
 USER root
