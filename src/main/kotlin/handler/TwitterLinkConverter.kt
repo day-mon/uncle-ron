@@ -4,6 +4,8 @@ import dev.minn.jda.ktx.events.CoroutineEventListener
 import io.ktor.http.*
 import net.dv8tion.jda.api.events.GenericEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
+import net.dv8tion.jda.api.interactions.components.buttons.Button
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
 
 
 object TwitterLinkConverter : CoroutineEventListener {
@@ -13,8 +15,12 @@ object TwitterLinkConverter : CoroutineEventListener {
         }
     }
 
-    suspend fun handleGuildMessage(event: MessageReceivedEvent) {
+    private fun handleGuildMessage(event: MessageReceivedEvent) {
+        if (event.author.isBot) return
         val message = event.message.contentRaw
+
+
+
         val url = try { Url(message) }
         catch (e: Exception) { return }
 
@@ -25,7 +31,17 @@ object TwitterLinkConverter : CoroutineEventListener {
 
         val path = url.toString().substringBefore("?")
 
-        val fixedUrl = path.replace(url.host, "fixupx.com")
-        event.channel.sendMessage("Fixed URL: $fixedUrl").queue()
+        val fixedUpXURL = path.replace(url.host, "vxtwitter.com")
+        val nitterUrl = path.replace(url.host, "nitter.net")
+        val builder = MessageCreateBuilder().also { messageCreateBuilder ->
+            messageCreateBuilder.setContent(fixedUpXURL)
+            messageCreateBuilder.addActionRow(
+                Button.link(fixedUpXURL, "See on Twitter"),
+                Button.link(nitterUrl, "See on Nitter")
+            )
+        }
+
+        event.message.delete().queue()
+        event.channel.sendMessage(builder.build()).queue()
     }
 }
