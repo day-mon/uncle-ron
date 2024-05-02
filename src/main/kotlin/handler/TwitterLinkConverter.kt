@@ -1,6 +1,7 @@
 package org.github.daymon.handler
 
 import dev.minn.jda.ktx.events.CoroutineEventListener
+import dev.minn.jda.ktx.messages.invoke
 import io.ktor.http.*
 import net.dv8tion.jda.api.events.GenericEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -34,14 +35,14 @@ object TwitterLinkConverter : CoroutineEventListener {
         val fixedUpXURL = path.replace(url.host, "vxtwitter.com")
         val nitterUrl = path.replace(url.host, "nitter.net")
         val builder = MessageCreateBuilder().also { messageCreateBuilder ->
-            messageCreateBuilder.setContent(fixedUpXURL)
+            messageCreateBuilder.setContent("$fixedUpXURL\n*Originally Posted by ${event.author.asMention}*")
             messageCreateBuilder.addActionRow(
                 Button.link(fixedUpXURL, "See on Twitter"),
                 Button.link(nitterUrl, "See on Nitter")
             )
-        }
+        }.build()
 
         event.message.delete().queue()
-        event.channel.sendMessage(builder.build()).queue()
+        event.channel.sendMessage(builder).queue()
     }
 }
