@@ -1,12 +1,14 @@
 package org.github.daymon.external
 
 import com.google.gson.annotations.SerializedName
+import dev.minn.jda.ktx.util.SLF4J
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.BodyProgress.Plugin.install
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
@@ -24,12 +26,14 @@ object TwelveData {
         }
     }
     private val configHandler: ConfigHandler = ConfigHandler
+    private val logger by SLF4J
 
     suspend fun earningsCalender(
         symbol: String
     ): TwelveDataEarningsCalenderResponse {
         val response =  ktorClient.get("https://api.twelvedata.com/earnings?symbol=$symbol&apikey=${configHandler.config.twelveDataApiKey}")
         if (response.status != HttpStatusCode.OK) {
+            logger.error("Failed to get earnings calender for $symbol - ${response.status} - ${response.bodyAsText()}")
             throw Exception("Failed to get earnings calender for $symbol")
         }
 
@@ -43,6 +47,7 @@ object TwelveData {
     ): TwelveDataQuoteResponse {
         val response =  ktorClient.get("https://api.twelvedata.com/quote?symbol=$symbol&apikey=${configHandler.config.twelveDataApiKey}")
         if (response.status != HttpStatusCode.OK) {
+            logger.error("Failed to get quote for $symbol - ${response.status} - ${response.bodyAsText()}")
             throw Exception("Failed to get quote for $symbol")
         }
 

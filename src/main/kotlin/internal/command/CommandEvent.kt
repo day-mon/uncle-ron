@@ -1,16 +1,20 @@
 package org.github.daymon.internal.command
 
 
+import dev.minn.jda.ktx.interactions.components.replyPaginator
+import dev.minn.jda.ktx.interactions.components.sendPaginator
 import dev.minn.jda.ktx.util.SLF4J
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.interactions.commands.OptionMapping
 import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
+import org.github.daymon.Constants
 import org.github.daymon.ext.empty
 import org.github.daymon.ext.replyEmbed
-import org.github.daymon.internal.misc.Pagable
+import org.github.daymon.ext.replyErrorEmbed
 import java.util.*
+import kotlin.time.Duration.Companion.minutes
 
 
 class CommandEvent(
@@ -26,6 +30,7 @@ class CommandEvent(
     val member = slashEvent.member!!
     val hook = slashEvent.hook
     val options: MutableList<OptionMapping> = slashEvent.options
+    val createdAt = slashEvent.timeCreated
 
 
 
@@ -37,6 +42,36 @@ class CommandEvent(
     fun replyMessageAndClear(message: String) = when  {
         slashEvent.isAcknowledged -> hook.editOriginal(message).setActionRow(emptyList()).setEmbeds(emptyList()).queue()
         else -> slashEvent.reply(message).addActionRow(emptyList()).addActionRow(emptyList()).queue()
+    }
+
+    fun replyErrorEmbed(error: String, embedTitle: String = "Error has occurred", color: Int = Constants.YELLOW) = slashEvent.replyErrorEmbed(
+        errorString = error,
+        title = embedTitle,
+        color = color
+    ).queue()
+
+    fun sendPaginator(vararg embeds: MessageEmbed)
+    {
+        if (embeds.isEmpty()) return replyErrorEmbed("There are no embeds to display")
+        if (embeds.size == 1) return replyEmbed(embeds.first())
+
+        return if (slashEvent.isAcknowledged)
+        {
+            hook.sendPaginator(
+                pages = embeds, expireAfter = 5.minutes
+            ) {
+                it.user.idLong == slashEvent.user.idLong
+            }.queue()
+
+        }
+        else
+        {
+            slashEvent.replyPaginator(
+                pages = embeds, expireAfter = 5.minutes
+            ) {
+                it.user.idLong == slashEvent.user.idLong
+            }.queue()
+        }
     }
 
 

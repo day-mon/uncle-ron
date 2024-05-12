@@ -1,10 +1,19 @@
 package org.github.daymon.ext
 
+import dev.jacobandersen.ddg4j.api.ResultItem
+import dev.minn.jda.ktx.messages.Embed
+import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback
 import net.dv8tion.jda.api.interactions.commands.Command
+import net.dv8tion.jda.api.interactions.components.buttons.Button
+import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction
+import org.github.daymon.Constants
+import org.github.daymon.internal.misc.Emoji
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.*
 
 
@@ -15,19 +24,38 @@ val String.Companion.empty: String
 inline fun <reified T: Enum<T>> emptyEnumSet(): EnumSet<T> = EnumSet.noneOf(T::class.java)
 inline fun <reified T: Enum<T>> enumSetOf(vararg elements: T): EnumSet<T> = EnumSet.copyOf(elements.toList())
 inline fun <reified T: Enum<T>> enumSetOf(collection: Collection<T>): EnumSet<T> = EnumSet.copyOf(collection)
-fun <T: IReplyCallback> T.replyEmbed(embed: MessageEmbed, content: String = String.empty) = when {
-    this.isAcknowledged -> this.hook.sendMessageEmbeds(embed).setContent(content).queue(null) {
-        logger.error(
-            "Error has occurred while attempting to send embeds",
-        )
-    }
-    else -> this.replyEmbeds(embed).setContent(content).queue(null) {
-        logger.error(
-            "Error has occurred while attempting to send embeds", it
-        )
 
-    }
+private fun errorEmbed(
+    errorString: String
+) =  Embed {
+    this.title = "${Emoji.STOP_SIGN.getAsChat()} $title"
+    this.description = errorString
+    this.color = Constants.RED
 }
+
+fun <T: IReplyCallback> T.replyErrorEmbed(errorString: String, title: String = "Error has occurred", color: Int = Constants.YELLOW): WebhookMessageCreateAction<Message> {
+    val embed = Embed {
+        this.title = "${Emoji.STOP_SIGN.getAsChat()} $title"
+        this.description = errorString
+        this.color = color
+    }
+
+    if (this.isAcknowledged.not())
+        this.deferReply().queue()
+
+    return this.hook.sendMessageEmbeds(embed)
+}
+
+
+fun InteractionHook.replyErrorEmbed(mainTitle: String = "Error has occurred", body: String, actionRows: List<Button> = emptyList(), content: String = String.empty) = this.editOriginalEmbeds(
+    Embed {
+        title = mainTitle
+        description = body
+        color = Constants.RED
+    }
+).setActionRow(actionRows)
+    .setContent(content)
+    .queue()
 
 
 fun BigDecimal.formatComma(): String {
@@ -49,3 +77,42 @@ fun CommandAutoCompleteInteractionEvent.replyChoiceStringAndLimit(vararg choices
         .filter { it.startsWith(this.focusedOption.value, ignoreCase = true) }
         .take(interactionLimit)
 )
+
+fun ResultItem.toEmbed(): MessageEmbed {
+    val disambiguationName = this.disambiguationName().ifEmpty { "No title" }
+    val url = this.url()
+    val description = this.instantInformation()
+
+    return Embed {
+        this.title = disambiguationName
+        this.url = url
+        field {
+            name = "Snippet"
+            value = description
+            inline = false
+        }
+
+    }
+}
+
+fun Instant.toDiscordTimeZone() = "<t:${this.epochSecond}>"
+fun Instant.toDiscordTimeZoneRelative() = "<t:${this.epochSecond}:R>"
+fun Instant.toDiscordTimeZoneLDST() = "<t:${this.epochSecond}:F>"
+
+
+fun <T: IReplyCallback> T.replyEmbed(embed: MessageEmbed, content: String = String.empty) = when {
+    this.isAcknowledged -> this.hook.sendMessageEmbeds(embed).setContent(content).queue(null) {
+        logger.error(
+            "Error has occurred while attempting to send embeds",
+        )
+        hook.editOriginal("Error has occurred while attempting to send embeds").queue()
+    }
+    else -> this.replyEmbeds(embed).setContent(content).queue(null) {
+        logger.error(
+            "Error has occurred while attempting to send embeds", it
+        )
+        this.reply("Error has occurred while attempting to send embeds").queue()
+
+    }
+}
+

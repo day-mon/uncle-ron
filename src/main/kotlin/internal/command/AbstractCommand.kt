@@ -1,5 +1,6 @@
 package org.github.daymon.internal.command
 
+import dev.minn.jda.ktx.util.SLF4J
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.build.CommandData
@@ -16,6 +17,7 @@ abstract class AbstractCommand {
     abstract val children: List<SubCommand>
     abstract val options: List<CommandOptionData<*>>
     abstract val deferredReplyEnabled: Boolean
+    private val logger by SLF4J
 
 
     val commandData: CommandData
@@ -58,6 +60,9 @@ abstract class AbstractCommand {
             event.replyMessage("I do not have the required permissions to use this command.")
             return
         }
+
+        logger.info("${event.user.name} executed command $name")
+
         onExecuteSuspend(event)
     }
 
