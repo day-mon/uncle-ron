@@ -46,7 +46,7 @@ class Ask : Command(
 
         val response: ChatInteractionResponse = try {
             client.chat(
-                model = model,kmj
+                model = model,
                 messages = listOf(
                     ChatInteraction(
                         role = ChatInteractionRole.SYSTEM,
