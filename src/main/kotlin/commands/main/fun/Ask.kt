@@ -4,9 +4,7 @@ import dev.minn.jda.ktx.coroutines.await
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import org.github.daymon.ext.replyChoiceAndLimit
-import org.github.daymon.external.ChatInteractionResponse
-import org.github.daymon.external.OpenRouter
-import org.github.daymon.external.Pastecord
+import org.github.daymon.external.*
 import org.github.daymon.internal.command.Command
 import org.github.daymon.internal.command.CommandEvent
 import org.github.daymon.internal.command.CommandOptionData
@@ -18,7 +16,7 @@ class Ask : Command(
     deferredReplyEnabled = true,
     options = listOf(
         CommandOptionData<String>(
-          optionType = OptionType.STRING,
+            optionType = OptionType.STRING,
             name = "model",
             description = "The model you want to use",
             isRequired = true,
@@ -37,12 +35,32 @@ class Ask : Command(
     override suspend fun onExecuteSuspend(event: CommandEvent) {
         val client = OpenRouter
 
-        val response: ChatInteractionResponse = try { client.chat(
-            model= event.getOption("model")?.asString ?: return event.replyMessage("You must provide a model."),
-            prompt = event.getOption("prompt")?.asString ?: return event.replyMessage("You must provide a prompt.")
-        ) } catch (e: Exception) {
+        val prompt = event.getOption(
+            "prompt"
+        )?.asString ?: return event.replyMessage("You must provide a prompt.")
+
+        val model = event.getOption(
+            "model"
+        )?.asString ?: return event.replyMessage("You must provide a model.")
+
+
+        val response: ChatInteractionResponse = try {
+            client.chat(
+                model = model,kmj
+                messages = listOf(
+                    ChatInteraction(
+                        role = ChatInteractionRole.SYSTEM,
+                        message = "You are a friendly AI that is here to help to answer questions. Just a reminder you are responding in the context of a discord. So format your messages accordingly.",
+                    ),
+                    ChatInteraction(
+                        role = ChatInteractionRole.USER,
+                        message = prompt
+                    )
+                )
+            )
+        } catch (e: Exception) {
             event.logger.error("An error occurred while trying to get a response.", e)
-            return event.replyMessage("An error occurred while trying to get a response.")
+            return event.replyMessage("An error occurred while trying to get a response. Error: ${e.message}")
         }
 
 
@@ -66,14 +84,15 @@ class Ask : Command(
 
     override suspend fun onAutoCompleteSuspend(event: CommandAutoCompleteInteractionEvent) {
         val client = OpenRouter
-        val modelNames = client.list().data.
-        filter {
+        val modelNames = client.list().data.filter {
             it.name != null && it.id != null
-        }.map { net.dv8tion.jda.api.interactions.commands.Command.Choice(
-            it.name!!,
-            it.id!!
+        }.map {
+            net.dv8tion.jda.api.interactions.commands.Command.Choice(
+                it.name!!,
+                it.id!!
 
-        ) }
+            )
+        }
 
 
         event.replyChoiceAndLimit(modelNames).await()

@@ -18,6 +18,5 @@ fun main() {
         enableCache(emptySet())
         setEventManager(CoroutineEventManager())
         addEventListeners(commandHandler, twitterConverter)
-        setActivity(Activity.customStatus("In Kotlin with \u2764\uFE0F"))
     }
 }

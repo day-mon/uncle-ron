@@ -34,7 +34,10 @@ class SecurityPrice : SubCommand(
         )
 
 
-        val embed = security.asEmbed() ?: return event.replyMessage("Could not find a security with the symbol $symbol")
+        val embed = security.asEmbed() ?: return event.replyErrorEmbed(
+            embedTitle = "$symbol not found",
+            error = "Could not find a security with the symbol `$symbol`."
+        )
 
 
         val message = MessageCreateBuilder().also {
