@@ -127,7 +127,7 @@ data class ChatInteractionResponse(
     val created: Int,
     val model: String,
     val choices: List<NonStreamingChoice>,
-    val usage: ModelUsage
+    val usage: ModelUsage?
 )
 
 data class ChatInteraction(
