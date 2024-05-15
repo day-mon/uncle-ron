@@ -108,7 +108,7 @@ data class ModelUsage(
    @SerialName("completion_tokens") val completionTokens: Int,
    @SerialName("prompt_tokens") val promptTokens: Int,
    @SerialName("total_tokens") val totalTokens: Int,
-   @SerialName("total_cost") val totalCost: Double
+   @SerialName("total_cost") val totalCost: Double? = null
 )
 @Serializable
 data class ChatInteractionResponseMessage(
@@ -127,7 +127,7 @@ data class ChatInteractionResponse(
     val created: Int,
     val model: String,
     val choices: List<NonStreamingChoice>,
-    val usage: ModelUsage?
+    val usage: ModelUsage? = null
 )
 
 data class ChatInteraction(
