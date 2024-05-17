@@ -98,7 +98,24 @@ fun ResultItem.toEmbed(): MessageEmbed {
 fun Instant.toDiscordTimeZone() = "<t:${this.epochSecond}>"
 fun Instant.toDiscordTimeZoneRelative() = "<t:${this.epochSecond}:R>"
 fun Instant.toDiscordTimeZoneLDST() = "<t:${this.epochSecond}:F>"
+fun BigDecimal.toHumanTime(): String {
+    // takes time that is in ms and converts it to days, hours, minutes, seconds
+    val days = this.toLong() / 86400000
+    val hours = this.toLong() % 86400000 / 3600000
+    val minutes = this.toLong() % 86400000 % 3600000 / 60000
+    val seconds = this.toLong() % 86400000 % 3600000 % 60000 / 1000
+    val milliseconds = this.toLong() % 86400000 % 3600000 % 60000 % 1000
 
+    val builder = StringBuilder()
+    if (days > 0) builder.append("$days days, ")
+    if (hours > 0) builder.append("$hours hours, ")
+    if (minutes > 0) builder.append("$minutes minutes, ")
+    if (seconds > 0) builder.append("$seconds seconds, ")
+    if (milliseconds > 0) builder.append("$milliseconds milliseconds")
+    return builder.toString()
+
+
+}
 
 fun <T: IReplyCallback> T.replyEmbed(embed: MessageEmbed, content: String = String.empty) = when {
     this.isAcknowledged -> this.hook.sendMessageEmbeds(embed).setContent(content).queue(null) {

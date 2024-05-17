@@ -5,7 +5,6 @@ import dev.minn.jda.ktx.util.SLF4J
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.BodyProgress.Plugin.install
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -14,6 +13,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.github.daymon.handler.ConfigHandler
+import java.sql.Struct
 
 object TwelveData {
     private val ktorClient: HttpClient = HttpClient(CIO) {
@@ -27,6 +27,7 @@ object TwelveData {
     }
     private val configHandler: ConfigHandler = ConfigHandler
     private val logger by SLF4J
+    private val cache: MutableMap<String, Any> = mutableMapOf()
 
     suspend fun earningsCalender(
         symbol: String
@@ -40,6 +41,25 @@ object TwelveData {
         return response.body<TwelveDataEarningsCalenderResponse>()
     }
 
+    suspend fun getTickers(): List<String> {
+        if (cache.containsKey("tickers")) {
+            return cache["tickers"] as List<String>
+        }
+        val tickersUrl = "https://raw.githubusercontent.com/rreichel3/US-Stock-Symbols/main/all/all_tickers.txt"
+
+
+        val response = ktorClient.get(tickersUrl)
+        if (response.status != HttpStatusCode.OK) {
+            logger.error("Failed to get tickers - ${response.status} - ${response.bodyAsText()}")
+            throw Exception("Failed to get tickers")
+        }
+
+        val tickers = response.body<String>().split("\n")
+        cache["tickers"] = tickers
+        return tickers
+
+    }
+
 
 
     suspend fun quote(
@@ -51,21 +71,22 @@ object TwelveData {
             throw Exception("Failed to get quote for $symbol")
         }
 
-        return response.body<TwelveDataQuoteResponse>()
+        logger.info("Quote response: ${response.bodyAsText()}")
+
+        val body =  response.body<TwelveDataQuoteResponse>()
+        return body
     }
 }
 
 @Serializable
 data class FiftyTwoWeek (
-
-    @SerializedName("low"                 ) var low               : String? = null,
-    @SerializedName("high"                ) var high              : String? = null,
-    @SerializedName("low_change"          ) var lowChange         : String? = null,
-    @SerializedName("high_change"         ) var highChange        : String? = null,
-    @SerializedName("low_change_percent"  ) var lowChangePercent  : String? = null,
-    @SerializedName("high_change_percent" ) var highChangePercent : String? = null,
+    @SerializedName("low"                 ) var low               : Double? = null,
+    @SerializedName("high"                ) var high              : Double? = null,
+    @SerializedName("low_change"          ) var lowChange         : Double? = null,
+    @SerializedName("high_change"         ) var highChange        : Double? = null,
+    @SerializedName("low_change_percent"  ) var lowChangePercent  : Double? = null,
+    @SerializedName("high_change_percent" ) var highChangePercent : Double? = null,
     @SerializedName("range"               ) var range             : String? = null
-
 )
 @Serializable
 data class TwelveDataQuoteResponse (
@@ -96,7 +117,15 @@ data class TwelveDataQuoteResponse (
     @SerializedName("extended_price"          ) var extendedPrice         : String?       = null,
     @SerializedName("extended_timestamp"      ) var extendedTimestamp     : Int?          = null
 
-)
+) {
+    fun change(): Double? {
+        val close = this.close?.toDouble() ?: return null
+        val previousClose = this.previousClose?.toDouble() ?: return null
+        val left = close - previousClose
+        val right = previousClose
+        return (left / right) * 100
+    }
+}
 
 data class TwelveDataEarningsCalenderResponse (
 
@@ -114,7 +143,6 @@ data class Meta (
     @SerializedName("mic_code"          ) var micCode          : String? = null,
     @SerializedName("exchange_timezone" ) var exchangeTimezone : String? = null
 )
-
 data class Earnings (
 
     @SerializedName("date"         ) var date        : String? = null,
@@ -125,3 +153,6 @@ data class Earnings (
     @SerializedName("surprise_prc" ) var surprisePrc : Double? = null
 
 )
+
+
+

@@ -1,5 +1,6 @@
 package org.github.daymon.commands.sub.money
 
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import org.github.daymon.internal.command.CommandEvent
 import org.github.daymon.internal.command.CommandOptionData
@@ -7,6 +8,8 @@ import org.github.daymon.internal.command.SubCommand
 import org.github.daymon.internal.security.Security
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
+import org.github.daymon.ext.replyChoiceStringAndLimit
+import org.github.daymon.external.TwelveData
 
 
 class SecurityPrice : SubCommand(
@@ -19,15 +22,23 @@ class SecurityPrice : SubCommand(
             optionType = OptionType.STRING,
             name = "security_symbol",
             description = "Security you want to get a price of",
-            isRequired = true
+            isRequired = true,
+            autoCompleteEnabled = true
         )
     )
 )
 {
+
+    override suspend fun onAutoCompleteSuspend(event: CommandAutoCompleteInteractionEvent) {
+        val twelveData = TwelveData
+        val tickers = twelveData.getTickers()
+
+        event.replyChoiceStringAndLimit(tickers).queue()
+    }
     override suspend fun onExecuteSuspend(event: CommandEvent)
     {
 
-        val symbol = event.getOption("security_symbol")?.asString?.uppercase() ?: return event.replyMessage("You must provide a security symbol.")
+        var symbol = event.getOption<String>("security_symbol")
 
         val security = Security(
             symbol
@@ -39,6 +50,9 @@ class SecurityPrice : SubCommand(
             error = "Could not find a security with the symbol `$symbol`."
         )
 
+        if (symbol.contains("/")) {
+            symbol = symbol.replace("/", "-")
+        }
 
         val message = MessageCreateBuilder().also {
             it.addActionRow(

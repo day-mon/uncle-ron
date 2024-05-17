@@ -1,6 +1,7 @@
 package org.github.daymon.internal.security
 
 import dev.minn.jda.ktx.messages.Embed
+import kotlinx.datetime.LocalDate
 import net.dv8tion.jda.api.entities.MessageEmbed
 import org.github.daymon.ext.formatComma
 import org.github.daymon.external.TwelveData
@@ -11,7 +12,7 @@ import java.time.temporal.TemporalAccessor
 
 
 class Security(
-    val ticker: String
+    private val ticker: String
 ) {
 
 
@@ -62,7 +63,7 @@ class Security(
             }
             field {
                 name = "Change"
-                value = quote.change?.toBigDecimal()?.formatComma() ?: "N/A"
+                value = "${quote.change?.toBigDecimal()?.formatComma() ?: "N/A"} (${quote.change() ?: "N/A"})"
                 inline = true
             }
             field {
@@ -79,12 +80,12 @@ class Security(
 
             field {
                 name = "Fifty Two Week Low"
-                value = quote.fiftyTwoWeek?.low ?: "N/A"
+                value = (quote.fiftyTwoWeek?.low ?: "N/A").toString()
                 inline = true
             }
             field {
                 name = "Fifty Two Week High"
-                value = quote.fiftyTwoWeek?.high ?: "N/A"
+                value = (quote.fiftyTwoWeek?.high ?: "N/A").toString()
                 inline = true
             }
             field {
@@ -97,7 +98,6 @@ class Security(
 
             footer {
                 name = "Data provided by Twelve Data"
-
             }
         }
 
