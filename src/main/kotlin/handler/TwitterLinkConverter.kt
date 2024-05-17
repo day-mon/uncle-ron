@@ -32,7 +32,7 @@ object TwitterLinkConverter : CoroutineEventListener {
 
         val path = url.toString().substringBefore("?")
 
-        val fixedUpXURL = path.replace(url.host, "vxtwitter.com")
+        val fixedUpXURL = path.replace(url.host, "fixupx.com")
         val builder = MessageCreateBuilder().also { messageCreateBuilder ->
             messageCreateBuilder.setContent("$fixedUpXURL\n*Originally Posted by ${event.author.asMention}*")
             messageCreateBuilder.addActionRow(
