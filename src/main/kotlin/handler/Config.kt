@@ -1,6 +1,8 @@
 package org.github.daymon.handler
 
 import dev.minn.jda.ktx.util.SLF4J
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.MissingFieldException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -51,6 +53,7 @@ object ConfigHandler
     }
 
 
+    @OptIn(ExperimentalSerializationApi::class)
     private fun loadConfig(): Config
     {
         try
@@ -61,7 +64,12 @@ object ConfigHandler
                     .joinToString(separator = "\n")
             )
             return config
-        } catch (e: Exception)
+        }
+        catch (e: MissingFieldException) {
+            logger.error("Failed to deserialize config, missing fields: ${e.missingFields}")
+            exitProcess(1)
+        }
+        catch (e: Exception)
         {
             logger.error("An error has occurred while attempting to decode json", e)
             exitProcess(1)
