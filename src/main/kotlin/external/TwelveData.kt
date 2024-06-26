@@ -1,6 +1,5 @@
 package org.github.daymon.external
 
-import com.google.gson.annotations.SerializedName
 import dev.minn.jda.ktx.util.SLF4J
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -10,6 +9,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.github.daymon.handler.ConfigHandler
@@ -65,7 +65,9 @@ object TwelveData {
     suspend fun quote(
         symbol: String
     ): TwelveDataQuoteResponse {
-        val response =  ktorClient.get("https://api.twelvedata.com/quote?symbol=$symbol&apikey=${configHandler.config.twelveDataApiKey}")
+        val response =  ktorClient.get("https://api.twelvedata.com/quote?symbol=$symbol&apikey=${configHandler.config.twelveDataApiKey}") {
+
+        }
         if (response.status != HttpStatusCode.OK) {
             logger.error("Failed to get quote for $symbol - ${response.status} - ${response.bodyAsText()}")
             throw Exception("Failed to get quote for $symbol")
@@ -73,84 +75,75 @@ object TwelveData {
 
         logger.info("Quote response: ${response.bodyAsText()}")
 
-        val body =  response.body<TwelveDataQuoteResponse>()
-        return body
+        return response.body<TwelveDataQuoteResponse>()
     }
 }
 
 @Serializable
 data class FiftyTwoWeek (
-    @SerializedName("low"                 ) var low               : Double? = null,
-    @SerializedName("high"                ) var high              : Double? = null,
-    @SerializedName("low_change"          ) var lowChange         : Double? = null,
-    @SerializedName("high_change"         ) var highChange        : Double? = null,
-    @SerializedName("low_change_percent"  ) var lowChangePercent  : Double? = null,
-    @SerializedName("high_change_percent" ) var highChangePercent : Double? = null,
-    @SerializedName("range"               ) var range             : String? = null
+    @SerialName("low"                 ) var low               : Double? = null,
+    @SerialName("high"                ) var high              : Double? = null,
+    @SerialName("low_change"          ) var lowChange         : Double? = null,
+    @SerialName("high_change"         ) var highChange        : Double? = null,
+    @SerialName("low_change_percent"  ) var lowChangePercent  : Double? = null,
+    @SerialName("high_change_percent" ) var highChangePercent : Double? = null,
+    @SerialName("range"               ) var range             : String? = null
 )
 @Serializable
 data class TwelveDataQuoteResponse (
 
-    @SerializedName("symbol"                  ) var symbol                : String?       = null,
-    @SerializedName("name"                    ) var name                  : String?       = null,
-    @SerializedName("exchange"                ) var exchange              : String?       = null,
-    @SerializedName("mic_code"                ) var micCode               : String?       = null,
-    @SerializedName("currency"                ) var currency              : String?       = null,
-    @SerializedName("datetime"                ) var datetime              : String?       = null,
-    @SerializedName("timestamp"               ) var timestamp             : Int?          = null,
-    @SerializedName("open"                    ) var open                  : String?       = null,
-    @SerializedName("high"                    ) var high                  : String?       = null,
-    @SerializedName("low"                     ) var low                   : String?       = null,
-    @SerializedName("close"                   ) var close                 : String?       = null,
-    @SerializedName("volume"                  ) var volume                : String?       = null,
-    @SerializedName("previous_close"          ) var previousClose         : String?       = null,
-    @SerializedName("change"                  ) var change                : String?       = null,
-    @SerializedName("percent_change"          ) var percentChange         : String?       = null,
-    @SerializedName("average_volume"          ) var averageVolume         : String?       = null,
-    @SerializedName("rolling_1d_change"       ) var rolling1dChange       : String?       = null,
-    @SerializedName("rolling_7d_change"       ) var rolling7dChange       : String?       = null,
-    @SerializedName("rolling_period_change"   ) var rollingPeriodChange   : String?       = null,
-    @SerializedName("is_market_open"          ) var isMarketOpen          : Boolean?      = null,
-    @SerializedName("fifty_two_week"          ) var fiftyTwoWeek          : FiftyTwoWeek? = FiftyTwoWeek(),
-    @SerializedName("extended_change"         ) var extendedChange        : String?       = null,
-    @SerializedName("extended_percent_change" ) var extendedPercentChange : String?       = null,
-    @SerializedName("extended_price"          ) var extendedPrice         : String?       = null,
-    @SerializedName("extended_timestamp"      ) var extendedTimestamp     : Int?          = null
+    @SerialName("symbol"                  ) var symbol                : String?       = null,
+    @SerialName("name"                    ) var name                  : String?       = null,
+    @SerialName("exchange"                ) var exchange              : String?       = null,
+    @SerialName("mic_code"                ) var micCode               : String?       = null,
+    @SerialName("currency"                ) var currency              : String?       = null,
+    @SerialName("datetime"                ) var datetime              : String?       = null,
+    @SerialName("timestamp"               ) var timestamp             : Int?          = null,
+    @SerialName("open"                    ) var open                  : String?       = null,
+    @SerialName("high"                    ) var high                  : String?       = null,
+    @SerialName("low"                     ) var low                   : String?       = null,
+    @SerialName("close"                   ) var close                 : String?       = null,
+    @SerialName("volume"                  ) var volume                : String?       = null,
+    @SerialName("previous_close"          ) var previousClose         : String?       = null,
+    @SerialName("change"                  ) var change                : String?       = null,
+    @SerialName("percent_change"          ) var percentChange         : String?       = null,
+    @SerialName("average_volume"          ) var averageVolume         : String?       = null,
+    @SerialName("rolling_1d_change"       ) var rolling1dChange       : String?       = null,
+    @SerialName("rolling_7d_change"       ) var rolling7dChange       : String?       = null,
+    @SerialName("rolling_period_change"   ) var rollingPeriodChange   : String?       = null,
+    @SerialName("is_market_open"          ) var isMarketOpen          : Boolean?      = null,
+    @SerialName("fifty_two_week"          ) var fiftyTwoWeek          : FiftyTwoWeek? = FiftyTwoWeek(),
+    @SerialName("extended_change"         ) var extendedChange        : String?       = null,
+    @SerialName("extended_percent_change" ) var extendedPercentChange : String?       = null,
+    @SerialName("extended_price"          ) var extendedPrice         : String?       = null,
+    @SerialName("extended_timestamp"      ) var extendedTimestamp     : Int?          = null
 
-) {
-    fun change(): Double? {
-        val close = this.close?.toDouble() ?: return null
-        val previousClose = this.previousClose?.toDouble() ?: return null
-        val left = close - previousClose
-        val right = previousClose
-        return (left / right) * 100
-    }
-}
+)
 
 data class TwelveDataEarningsCalenderResponse (
 
-    @SerializedName("meta"     ) var meta     : Meta?               = Meta(),
-    @SerializedName("earnings" ) var earnings : ArrayList<Earnings> = arrayListOf(),
-    @SerializedName("status"   ) var status   : String?             = null
+    @SerialName("meta"     ) var meta     : Meta?               = Meta(),
+    @SerialName("earnings" ) var earnings : ArrayList<Earnings> = arrayListOf(),
+    @SerialName("status"   ) var status   : String?             = null
 
 )
 data class Meta (
 
-    @SerializedName("symbol"            ) var symbol           : String? = null,
-    @SerializedName("name"              ) var name             : String? = null,
-    @SerializedName("currency"          ) var currency         : String? = null,
-    @SerializedName("exchange"          ) var exchange         : String? = null,
-    @SerializedName("mic_code"          ) var micCode          : String? = null,
-    @SerializedName("exchange_timezone" ) var exchangeTimezone : String? = null
+    @SerialName("symbol"            ) var symbol           : String? = null,
+    @SerialName("name"              ) var name             : String? = null,
+    @SerialName("currency"          ) var currency         : String? = null,
+    @SerialName("exchange"          ) var exchange         : String? = null,
+    @SerialName("mic_code"          ) var micCode          : String? = null,
+    @SerialName("exchange_timezone" ) var exchangeTimezone : String? = null
 )
 data class Earnings (
 
-    @SerializedName("date"         ) var date        : String? = null,
-    @SerializedName("time"         ) var time        : String? = null,
-    @SerializedName("eps_estimate" ) var epsEstimate : Double? = null,
-    @SerializedName("eps_actual"   ) var epsActual   : Double? = null,
-    @SerializedName("difference"   ) var difference  : Double? = null,
-    @SerializedName("surprise_prc" ) var surprisePrc : Double? = null
+    @SerialName("date"         ) var date        : String? = null,
+    @SerialName("time"         ) var time        : String? = null,
+    @SerialName("eps_estimate" ) var epsEstimate : Double? = null,
+    @SerialName("eps_actual"   ) var epsActual   : Double? = null,
+    @SerialName("difference"   ) var difference  : Double? = null,
+    @SerialName("surprise_prc" ) var surprisePrc : Double? = null
 
 )
 

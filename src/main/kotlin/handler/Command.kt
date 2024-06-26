@@ -13,7 +13,6 @@ import org.github.daymon.commands.main.info.Info
 import org.github.daymon.commands.main.misc.Leetify
 import org.github.daymon.commands.main.misc.Ping
 import org.github.daymon.commands.main.misc.Search
-import org.github.daymon.commands.main.money.Economy
 import org.github.daymon.commands.main.money.Security
 import org.github.daymon.commands.sub.money.SecurityPrice
 import org.github.daymon.internal.command.AbstractCommand
@@ -34,7 +33,6 @@ object CommandHandler : CoroutineEventListener {
             Ping(),
             Security(),
             Ask(),
-            Economy(),
             Leetify(),
             Info(),
             Search()

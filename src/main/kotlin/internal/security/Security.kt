@@ -63,7 +63,7 @@ class Security(
             }
             field {
                 name = "Change"
-                value = "${quote.change?.toBigDecimal()?.formatComma() ?: "N/A"} (${quote.change() ?: "N/A"})"
+                value = "${quote.change?.toBigDecimal()?.formatComma() ?: "N/A"} (${quote.change ?: "N/A"})"
                 inline = true
             }
             field {
