@@ -25,13 +25,6 @@ class SecurityAskFinancials: SubCommand(
         ),
         CommandOptionData<String>(
             optionType = OptionType.STRING,
-            name = "model",
-            description = "The model you want to use",
-            isRequired = true,
-            autoCompleteEnabled = true
-        ),
-        CommandOptionData<String>(
-            optionType = OptionType.STRING,
             name = "prompt",
             description = "The prompt you want to ask the LLM",
             isRequired = true
@@ -39,6 +32,8 @@ class SecurityAskFinancials: SubCommand(
 
     )
 ) {
+
+    private val model = "anthropic/claude-3.5-sonnet"
 
     private suspend fun buildPrompt(security: String, prompt: String): String {
         val yhFinance = YahooFinance
@@ -64,10 +59,10 @@ class SecurityAskFinancials: SubCommand(
 
     override suspend fun onExecuteSuspend(event: CommandEvent) {
         val security = event.getOption<String>("security_symbol")
-        val model = event.getOption<String>("model")
         val prompt = event.getOption<String>("prompt")
 
         val promptString = buildPrompt(security, prompt)
+
 
         val client = OpenRouter
         val response = try {
@@ -77,11 +72,43 @@ class SecurityAskFinancials: SubCommand(
                     ChatInteraction(
                         role = ChatInteractionRole.SYSTEM,
                         message = """You are a friendly AI that is here to help to answer questions about a security's financials. 
-                            |Just a reminder you are responding in the context of a discord. So format your messages accordingly. 
                             |Do not make anything up. 
                             |Make sure all the numbers you see will be in thousands so keep that in mind when you are looking at the financials.
                             |If the user uses any words like "it" or "they", they are referring to the security in question.
-                            |Always give exact citations of where you got your information and use footnotes to cite your sources. When using footnotes only use the number of the footnote and the source.
+                            |
+                            |When giving your response make sure you keep this formatting guide available for markdown:
+                            |
+                            |Element 	Support 	Notes
+                            Headings 	Yes 	
+                            Paragraphs 	No 	
+                            Line Breaks 	No 	The Markdown syntax is not supported, but you can press the Shift and Return keys to go to the next line.
+                            Bold 	Yes 	Use asterisks. Underscores aren’t supported.
+                            Italic 	Yes 	
+                            Blockquotes 	Yes 	You can use >>> to create a multi-line blockquote. All text from the >>> to the end of the message will be included in the quote.
+                            Ordered Lists 	Yes 	
+                            Unordered Lists 	Yes 	
+                            Code 	Yes 	
+                            Horizontal Rules 	No 	
+                            Links 	Partial 	Not fully supported. See this GitHub issue for more information.
+                            Images 	No 	
+                            Tables 	No 	
+                            Fenced Code Blocks 	Yes 	
+                            Syntax Highlighting 	Yes 	
+                            Footnotes 	No 	
+                            Heading IDs 	No 	
+                            Definition Lists 	No 	
+                            Strikethrough 	Yes 	
+                            Task Lists 	No 	
+                            Emoji (copy and paste) 	Yes 	
+                            Emoji (shortcodes) 	Yes 	
+                            Highlight 	No 	
+                            Subscript 	No 	
+                            Superscript 	No 	
+                            Automatic URL Linking 	Yes 	
+                            Disabling Automatic URL Linking 	Yes 	
+                            HTML 	No 	
+                            |
+                            |ALWAYS use markdown and make sure you give excerpts from the financials to back up your response, but make sure you keep the excerpts short and sweet
                             |""".trimMargin()
                     ),
                     ChatInteraction(
@@ -99,23 +126,13 @@ class SecurityAskFinancials: SubCommand(
             )
         }
 
-        val responseMessage = response.choices[0].message.content
-        if ((responseMessage?.length ?: 0) > 2000) {
-            val pastecordClient = Pastecord
-            val uploadKey = try {
-                pastecordClient.upload(responseMessage!!)
-            } catch (e: Exception) {
-                event.logger.error("An error occurred while trying to upload the response to pastecord.", e)
-                return event.replyMessage("An error occurred while trying to upload the response to pastecord.")
-            }
+        val responseMessage = response.choices[0].message.content ?: return event.replyErrorEmbed(
+            embedTitle = "An error occurred while trying to get a response.",
+            error = "An error occurred while trying to get a response. Error: Response was null."
+        )
 
-            return event.replyMessage("The response was too long, so it has been uploaded to pastecord: https://pastecord.com/$uploadKey")
-        }
+        event.replyMessageWithOverflow(responseMessage)
 
-
-
-        event.slashEvent.hook.sendMessage("${response.choices[0].message.content}")
-            .queue()
 
 
     }

@@ -65,16 +65,16 @@ fun BigDecimal.formatComma(): String {
 private const val interactionLimit: Int = 25
 fun CommandAutoCompleteInteractionEvent.replyChoiceAndLimit(commands: Collection<Command.Choice>) = this.replyChoices(
     commands
-        .filter { it.name.startsWith(this.focusedOption.value, ignoreCase = true) }.take(interactionLimit)
+        .filter { it.name.contains(this.focusedOption.value, ignoreCase = true) }.take(interactionLimit)
 )
 fun CommandAutoCompleteInteractionEvent.replyChoiceStringAndLimit(commands: Collection<String>) = this.replyChoiceStrings(
     commands
-        .filter { it.startsWith(this.focusedOption.value, ignoreCase = true) }
+        .filter { it.contains(this.focusedOption.value, ignoreCase = true) }
         .take(interactionLimit)
 )
 fun CommandAutoCompleteInteractionEvent.replyChoiceStringAndLimit(vararg choices: String) = this.replyChoiceStrings(
     choices
-        .filter { it.startsWith(this.focusedOption.value, ignoreCase = true) }
+        .filter { it.contains(this.focusedOption.value, ignoreCase = true) }
         .take(interactionLimit)
 )
 

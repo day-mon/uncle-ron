@@ -64,23 +64,12 @@ class Ask : Command(
             return event.replyMessage("An error occurred while trying to get a response. Error: ${e.message}")
         }
 
+        val responseMessage = response.choices[0].message.content ?: return event.replyErrorEmbed(
+            embedTitle = "An error occurred while trying to get a response.",
+            error = "An error occurred while trying to get a response. Error: Response was null."
+        )
 
-        val responseMessage = response.choices[0].message.content
-        if ((responseMessage?.length ?: 0) > 2000) {
-            val pastecordClient = Pastecord
-            val uploadKey = try {
-                pastecordClient.upload(responseMessage!!)
-            } catch (e: Exception) {
-                event.logger.error("An error occurred while trying to upload the response to pastecord.", e)
-                return event.replyMessage("An error occurred while trying to upload the response to pastecord.")
-            }
-
-            return event.replyMessage("The response was too long, so it has been uploaded to pastecord: https://pastecord.com/$uploadKey")
-        }
-
-
-
-        event.slashEvent.hook.sendMessage("${response.choices[0].message.content}").queue()
+        event.replyMessageWithOverflow(responseMessage)
     }
 
     override suspend fun onAutoCompleteSuspend(event: CommandAutoCompleteInteractionEvent) {
@@ -94,6 +83,9 @@ class Ask : Command(
 
             )
         }
+        println(
+
+        )
 
 
         event.replyChoiceAndLimit(modelNames).await()

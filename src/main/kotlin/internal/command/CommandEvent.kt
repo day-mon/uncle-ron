@@ -13,6 +13,7 @@ import org.github.daymon.Constants
 import org.github.daymon.ext.empty
 import org.github.daymon.ext.replyEmbed
 import org.github.daymon.ext.replyErrorEmbed
+import org.github.daymon.external.Pastecord
 import java.util.*
 import kotlin.time.Duration.Companion.minutes
 
@@ -31,6 +32,23 @@ class CommandEvent(
     val hook = slashEvent.hook
     val options: MutableList<OptionMapping> = slashEvent.options
     val createdAt = slashEvent.timeCreated
+
+
+    suspend fun replyMessageWithOverflow(message: String) {
+        if (message.length <= 2000) {
+            return replyMessage(message)
+        }
+
+        val pastecord = Pastecord
+        val uploadKey = try {
+               pastecord.upload(message)
+           } catch (e: Exception) {
+               logger.error("Failed to upload to pastecord", e)
+               return replyErrorEmbed("Failed to upload to pastecord")
+
+        }
+        return replyMessage("The response was too long, so it has been uploaded to pastecord: https://pastecord.com/$uploadKey")
+    }
 
 
 
@@ -73,6 +91,8 @@ class CommandEvent(
             }.queue()
         }
     }
+
+
 
 
 

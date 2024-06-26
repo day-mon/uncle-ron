@@ -42,13 +42,9 @@ object YahooFinance {
             logger.error("Failed to fetch table from $url", e)
             return null
         }
-        println(
-            "Title: ${doc.title()}\nStuff: ${doc.body().html()}"
-        )
-        val tableContainer = doc.select("div[class^=tableContainer]").first()?.html()
-        println(
-            "Table Container: $tableContainer"
-        )
+
+        val tableContainer = doc.select("div[class^=tableContainer]").first()?.text()
+
         return tableContainer
     }
 
