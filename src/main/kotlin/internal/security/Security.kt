@@ -63,7 +63,7 @@ class Security(
             }
             field {
                 name = "Change"
-                value = "${quote.change?.toBigDecimal()?.formatComma() ?: "N/A"} (${quote.change ?: "N/A"})"
+                value = "${quote.change?.toBigDecimal()?.formatComma() ?: "N/A"} (${quote.percentChange ?: "N/A"}%)"
                 inline = true
             }
             field {
@@ -80,12 +80,12 @@ class Security(
 
             field {
                 name = "Fifty Two Week Low"
-                value = (quote.fiftyTwoWeek?.low ?: "N/A").toString()
+                value = (quote.fiftyTwoWeek?.low?.toBigDecimal()?.formatComma() ?: "N/A").toString()
                 inline = true
             }
             field {
                 name = "Fifty Two Week High"
-                value = (quote.fiftyTwoWeek?.high ?: "N/A").toString()
+                value = (quote.fiftyTwoWeek?.high?.toBigDecimal()?.formatComma() ?: "N/A").toString()
                 inline = true
             }
             field {
