@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import select, update
@@ -12,7 +13,10 @@ from app.models.database import (
 
 
 class Database:
-    def __init__(self, db_url: str = "sqlite+aiosqlite:///guild_settings.db"):
+    def __init__(self, db_url: str | None = None):
+        if db_url is None:
+            base_dir = Path(__file__).resolve().parent
+            db_url  = f"sqlite+aiosqlite:///{base_dir / 'guild_settings.db'}"
         self.db_url = db_url
         self.engine: Optional[create_async_engine] = None
         self.session_factory: Optional[async_sessionmaker[AsyncSession]] = None
