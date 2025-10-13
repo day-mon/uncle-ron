@@ -231,4 +231,4 @@ class Database:
             return domain_stats, total_links, user_rank
 
 
-db = Database()
+db = Database(db_url=os.getenv("DB_URL"))

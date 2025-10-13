@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/day-mon/uncle-ron:main
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_URL=sqlite+aiosqlite:///data/guild_settings.db
+    restart: unless-stopped
+    user: "botuser" 
