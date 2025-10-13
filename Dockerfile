@@ -11,8 +11,8 @@ RUN uv sync --no-cache --frozen
 COPY app ./app
 COPY README.md ./
 
-RUN mkdir -p /app/app && chown -R botuser:botuser /app
 RUN useradd -m botuser
+RUN mkdir -p /app/app && chown -R botuser:botuser /app
 USER botuser
 
 ENV PYTHONUNBUFFERED=1 \
