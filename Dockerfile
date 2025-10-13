@@ -1,53 +1,21 @@
-# Caching: https://stackoverflow.com/questions/58593661/slow-gradle-build-in-docker-caching-gradle-build
+FROM python:3.13-slim AS base
 
-# Downloads gradle w/ java
-FROM gradle:8.5-jdk-alpine as cache
+WORKDIR /app
 
-# Creates cache home
-RUN mkdir -p /home/gradle/cache_home
+COPY pyproject.toml uv.lock ./
 
-# Sets GRADLE_USER_HOME to here so it can write the dependencies here instead of normal gradle home
-ENV GRADLE_USER_HOME /home/gradle/cache_home
+RUN pip install --no-cache-dir uv===0.6.4
 
-# Copies build file
-COPY build.gradle.kts /home/gradle/java-code/
+RUN uv sync --no-cache --frozen
 
-# Sets Workdirectory moves
-WORKDIR /home/gradle/java-code
+COPY app ./app
+COPY README.md ./
 
-# Builds project
-RUN gradle clean build -i --stacktrace
+RUN useradd -m botuser
+USER botuser
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_NO_CACHE=1
 
-# Downloads gradle w/ java
-FROM gradle:8.5-jdk-alpine as builder
-
-# Copies depenencies to actual GRADLE_USER_HOME so it doesnt need to redownload here...
-# Normal GRADLE_USER_HOME = /home/gradle/.gradle. Its changed so you wont need to have gradle installed for it to persist
-COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
-
-# Copies all files from project into /home/uncle-ron
-COPY . /home/uncle-ron
-
-# Sets work directory moves
-WORKDIR /home/uncle-ron
-
-# Jars project
-RUN gradle build-jar -i --stacktrace
-
-RUN cp /home/uncle-ron/build/libs/UncleRon*.jar /home/uncle-ron/build/libs/app.jar
-
-
-# Downloads java
-FROM  openjdk:21-slim
-
-# Sets user to root
-USER root
-
-# Sets work directory moves
-WORKDIR /home/uncle-ron
-
-# Copies jar from builder build steps
-COPY --from=builder /home/uncle-ron/build/libs/app.jar ./app.jar
-# Runs.. :)
-ENTRYPOINT java -jar -Xmx2G app.jar
+CMD ["uv", "run", "python", "-m", "app.main"]

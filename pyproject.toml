@@ -1,0 +1,23 @@
+[project]
+name = "uncle-ron"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "async-lru>=2.0.5",
+    "cogwatch>=3.3.1",
+    "discord-py>=2.6.4",
+    "httpx[h2]>=0.28.1",
+    "openai>=2.3.0",
+    "psutil>=7.1.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.11.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.19.0",
+    "alembic>=1.13.0",
+    "matplotlib>=3.10.7",
+    "yfinance>=0.2.66",
+    "openai-agents>=0.0.6",
+    "duckduckgo-search>=8.1.1",
+]
