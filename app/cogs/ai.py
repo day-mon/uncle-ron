@@ -1,6 +1,5 @@
 import io
 import re
-import logging
 
 import httpx
 from discord import (
@@ -28,8 +27,9 @@ from app.config.app_settings import settings
 from app.models.ai import FactCheckResponse
 from app.database import db
 from app.utils.interaction_utils import send
+from app.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AI(Cog):
@@ -80,6 +80,7 @@ class AI(Cog):
     ) -> tuple[discord.Thread, str]:
         channel = interaction.channel
 
+        # If we're already in a thread, use it
         if channel.type in (ChannelType.public_thread, ChannelType.private_thread):
             if stored_model := await db.get_thread_model(channel.id):
                 return channel, stored_model
@@ -87,6 +88,7 @@ class AI(Cog):
             await db.set_thread_model(interaction.guild.id, channel.id, model)
             return channel, model
 
+        # Create a new thread with the question as the title
         thread_name = (
             f"Question: {question[:50]}…"
             if len(question) > 50
@@ -98,6 +100,7 @@ class AI(Cog):
             auto_archive_duration=60,
         )
 
+        # Store the model used for this thread
         await db.set_thread_model(interaction.guild.id, thread.id, model)
         return thread, model
 
@@ -120,14 +123,14 @@ class AI(Cog):
         temperature: app_commands.Range[float, 0.01, 1.0] = 0.01,
         max_tokens: app_commands.Range[int, 1, 500] = 500,
     ):
-        await interaction.response.defer(thinking=True, ephemeral=False)
-
-        thread, model = await self.obtain_thread(interaction, question, model)
-
-        message = await thread.send(
-            f"😶‍🌫️ Processing your question from {interaction.user.mention}:\n```\n{question}\n```"
+        await interaction.response.defer(ephemeral=False)
+        
+        # Send initial message without creating a thread
+        initial_message = await interaction.followup.send(
+            f"🚀 Hey {interaction.user.mention}, we're sending your request to the AI with your prompt:\n```\n{question}\n```"
         )
-
+        
+        # Get AI response
         oai_response: ChatCompletion = await self.client.chat.completions.create(
             model=model,
             max_tokens=max_tokens,
@@ -137,20 +140,33 @@ class AI(Cog):
             ],
         )
         ai_text = oai_response.choices[0].message.content
-
-        await message.edit(
-            content=(
-                f"💡 **Question:**\n```\n{question}\n```\n\n"
-                f"🤖 **Answer:**\n```\n{ai_text}\n```"
-            )
+        
+        # Now that we have a response, obtain the thread
+        thread, model = await self.obtain_thread(interaction, question, model)
+        
+        # Send the AI response in the thread
+        await thread.send(
+            f"💡 **Question from {interaction.user.mention}:**\n```\n{question}\n```\n\n"
+            f"🤖 **Answer (using {model}):**\n```\n{ai_text}\n```"
         )
-
-        followup: Webhook = interaction.followup()
-
-        await followup.send(f"✅ Your question has been answered in {thread.mention}.")
+        
+        # Edit the original message to point to the thread
+        await initial_message.edit(
+            content=f"✅ Your question has been answered in {thread.mention}."
+        )
 
     @ask.error
     async def ask_error(self, interaction: discord.Interaction, error: Exception):
+        # Try to find the initial message to update it
+        try:
+            async for message in interaction.channel.history(limit=10):
+                if message.author == self.bot.user and message.content.startswith(f"🚀 Hey {interaction.user.mention}"):
+                    await message.edit(content=f"❌ Error processing your request: {str(error)}")
+                    return
+        except:
+            pass
+            
+        # Fallback to sending a new message if we can't find the initial one
         await send(
             interaction=interaction,
             content=f"❌ {type(error).__name__}: {error}",

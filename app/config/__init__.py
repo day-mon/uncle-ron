@@ -1,9 +1,8 @@
-import logging
 import os
 from pathlib import Path
+from app.utils.logger import get_logger
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 environment = os.getenv("ENVIRONMENT", "development")
 

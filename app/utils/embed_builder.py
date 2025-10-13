@@ -12,6 +12,26 @@ class EmbedBuilder:
 
     def __init__(self):
         self._embed = Embed()
+        
+    @staticmethod
+    def create(title: str = None, description: str = None, color = None, timestamp: datetime = None) -> Embed:
+        """Create and return an Embed directly with common parameters.
+        
+        Args:
+            title: The embed title
+            description: The embed description
+            color: The embed color
+            timestamp: The embed timestamp (defaults to current time if None)
+            
+        Returns:
+            A configured Discord Embed object
+        """
+        embed = Embed(title=title, description=description, color=color)
+        if timestamp:
+            embed.timestamp = timestamp
+        elif timestamp is None:
+            embed.timestamp = datetime.now(timezone.utc)
+        return embed
 
     def title(self, title: str) -> "EmbedBuilder":
         """Set the embed title."""

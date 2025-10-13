@@ -2,12 +2,12 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
-import logging
 import asyncio
 from datetime import datetime, time, timezone, timedelta
 import discord
 from discord import app_commands
-from discord.ext.commands import Bot, Cog, hybrid_command, Context, check
+from discord.ext.commands import Bot, Cog, hybrid_command, Context
+from app.utils.check_utils import guild_only_check, feature_enabled_check, create_feature_check
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionUserMessageParam,
@@ -21,8 +21,7 @@ from app.models.database import GuildSettings
 from app.models.qotd import QOTDResponse
 from app.utils import EmbedBuilder, PollBuilder
 import json
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import get_logger
 
 
 class QOTD(Cog):
@@ -37,55 +36,30 @@ class QOTD(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
         self.qotd_task = None
+        
+    @cached_property
+    def logger(self):
+        """Get a logger for this cog."""
+        return get_logger(self.__class__.__name__)
 
-    @staticmethod
-    def is_guild_only():
-        """Check that command is used in a guild."""
-
-        async def predicate(ctx: Context):
-            if not ctx.guild:
-                await ctx.send(
-                    "❌ This command can only be used in a server.", ephemeral=True
-                )
-                return False
-            return True
-
-        return check(predicate)
-
-    @staticmethod
-    def feature_enabled(feature: str):
-        """Check that a feature is enabled for the guild."""
-
-        async def predicate(ctx: Context):
-            if not ctx.guild:
-                return True  # Allow DM usage if no guild
-            if not await db.is_feature_enabled(ctx.guild.id, feature):
-                await ctx.send(
-                    f"❌ {feature.replace('_', ' ').title()} features are disabled for this server. Use `/enable {feature}` to enable them.",
-                    ephemeral=True,
-                )
-                return False
-            return True
-
-        return check(predicate)
 
     @cached_property
-    def grok_client(self):
+    def client(self):
         async def log_request(request):
-            logger.info(f"🚀 Grok Request: {request.method} {request.url}")
-            logger.debug(f"Request headers: {dict(request.headers)}")
+            self.logger.info(f"🚀 Grok Request: {request.method} {request.url}")
+            self.logger.debug(f"Request headers: {dict(request.headers)}")
             if hasattr(request, "content") and request.content:
-                logger.debug(
+                self.logger.debug(
                     f"Request body: {request.content.decode('utf-8', errors='ignore')[:500]}..."
                 )
 
         async def log_response(response):
-            logger.info(
+            self.logger.info(
                 f"📥 Grok Response: {response.status_code} {response.reason_phrase}"
             )
-            logger.debug(f"Response headers: {dict(response.headers)}")
+            self.logger.debug(f"Response headers: {dict(response.headers)}")
             if hasattr(response, "content") and response.content:
-                logger.debug(
+                self.logger.debug(
                     f"Response body: {response.content.decode('utf-8', errors='ignore')[:500]}..."
                 )
 
@@ -100,13 +74,13 @@ class QOTD(Cog):
     async def cog_load(self):
         """Start the QOTD scheduler when the cog loads."""
         self.qotd_task = asyncio.create_task(self.qotd_scheduler())
-        logger.info("📅 QOTD scheduler started")
+        self.logger.info("📅 QOTD scheduler started")
 
     async def cog_unload(self):
         """Stop the QOTD scheduler when the cog unloads."""
         if self.qotd_task:
             self.qotd_task.cancel()
-            logger.info("📅 QOTD scheduler stopped")
+            self.logger.info("📅 QOTD scheduler stopped")
 
     async def qotd_scheduler(self):
         """Schedule QOTD to post at 4 PM EST daily."""
@@ -130,7 +104,7 @@ class QOTD(Cog):
                 now_utc = datetime.now(timezone.utc)
                 wait_seconds = (next_qotd_utc - now_utc).total_seconds()
 
-                logger.info(
+                self.logger.info(
                     f"⏰ Next QOTD scheduled for {next_qotd_utc} UTC ({wait_seconds / 3600:.1f} hours)"
                 )
                 await asyncio.sleep(wait_seconds)
@@ -140,7 +114,7 @@ class QOTD(Cog):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"❌ Error in QOTD scheduler: {e}")
+                self.logger.error(f"❌ Error in QOTD scheduler: {e}")
                 await asyncio.sleep(
                     timedelta(hours=1).total_seconds()
                 )  # Wait 1 hour before retrying
@@ -157,7 +131,7 @@ class QOTD(Cog):
                     await self.create_and_post_qotd(channel)
 
             except Exception as e:
-                logger.error(f"❌ Error posting QOTD to guild {guild.name}: {e}")
+                self.logger.error(f"❌ Error posting QOTD to guild {guild.name}: {e}")
 
     async def get_qotd_channel(self, guild, settings: GuildSettings):
         """Get the configured QOTD channel for a guild."""
@@ -175,7 +149,7 @@ class QOTD(Cog):
 
     async def generate_qotd(self) -> QOTDResponse:
         """Generate a controversial thought-provoking question with 4 options."""
-        response = await self.grok_client.beta.chat.completions.parse(
+        response = await self.client.beta.chat.completions.parse(
             model=settings.qotd_model,
             max_tokens=400,
             temperature=0.8,
@@ -241,8 +215,9 @@ class QOTD(Cog):
     @hybrid_command(
         name="qotd",
         description="Manually trigger Question of the Day",
-        checks=[is_guild_only(), feature_enabled("qotd_enabled")],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(create_feature_check("qotd_enabled"))
     async def qotd(self, ctx: Context):
         """Manually trigger a Question of the Day."""
         await ctx.defer(ephemeral=True)
@@ -260,8 +235,9 @@ class QOTD(Cog):
     @hybrid_command(
         name="qotdchannel",
         description="Set the channel for QOTD posts",
-        checks=[is_guild_only(), feature_enabled("qotd_enabled")],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(create_feature_check("qotd_enabled"))
     @app_commands.describe(
         channel="The channel where QOTD should be posted (leave empty for current channel)"
     )

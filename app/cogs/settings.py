@@ -6,37 +6,32 @@ from discord.ext.commands import (
     hybrid_command,
     Context,
     has_guild_permissions,
-    check,
 )
 from discord.app_commands import Range
 
 from app.database import db
 from app.utils import EmbedBuilder
+from app.utils.check_utils import guild_only_check, is_admin_check
+from app.utils.logger import get_logger
+from propcache import cached_property
 
 
 class Settings(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
+        
+    @cached_property
+    def logger(self):
+        """Get a logger for this cog."""
+        return get_logger(self.__class__.__name__)
 
-    @staticmethod
-    def guild_only_check():
-        """Check that command is used in a guild."""
-
-        async def predicate(ctx: Context):
-            if not ctx.guild:
-                await ctx.send(
-                    "❌ This command can only be used in a server.", ephemeral=True
-                )
-                return False
-            return True
-
-        return check(predicate)
+    # Using centralized checks from app.utils.check_utils
 
     @hybrid_command(
         name="settings",
         description="View current guild settings",
-        checks=[guild_only_check()],
     )
+    @app_commands.check(guild_only_check)
     async def view_settings(self, ctx: Context):
         """View the current guild settings."""
 
@@ -75,8 +70,9 @@ class Settings(Cog):
     @hybrid_command(
         name="enable",
         description="Enable a feature for this guild",
-        checks=[guild_only_check(), has_guild_permissions(manage_guild=True).predicate],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(is_admin_check)
     @app_commands.describe(
         feature="The feature to enable, Choose from: ai, factcheck, grok, qotd",
     )
@@ -122,8 +118,9 @@ class Settings(Cog):
     @hybrid_command(
         name="disable",
         description="Disable a feature for this guild",
-        checks=[guild_only_check(), has_guild_permissions(manage_guild=True).predicate],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(is_admin_check)
     @app_commands.describe(feature="The feature to disable (ai, factcheck, grok, qotd)")
     async def disable_feature(self, ctx: Context, *, feature: str):
         """Disable a specific feature for the guild."""
@@ -167,8 +164,9 @@ class Settings(Cog):
     @hybrid_command(
         name="setconfig",
         description="Set a custom configuration value",
-        checks=[guild_only_check(), has_guild_permissions(manage_guild=True).predicate],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(is_admin_check)
     @app_commands.describe(key="The configuration key", value="The configuration value")
     async def set_config(self, ctx: Context, *, key: str, value: str):
         """Set a custom configuration value for the guild."""
@@ -188,8 +186,8 @@ class Settings(Cog):
     @hybrid_command(
         name="getconfig",
         description="Get a custom configuration value",
-        checks=[guild_only_check()],
     )
+    @app_commands.check(guild_only_check)
     @app_commands.describe(key="The configuration key to retrieve")
     async def get_config(self, ctx: Context, *, key: str):
         """Get a custom configuration value for the guild."""
@@ -214,8 +212,9 @@ class Settings(Cog):
     @hybrid_command(
         name="delconfig",
         description="Delete a custom configuration value",
-        checks=[guild_only_check(), has_guild_permissions(manage_guild=True).predicate],
     )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(is_admin_check)
     @app_commands.describe(key="The configuration key to delete")
     async def del_config(self, ctx: Context, *, key: str):
         """Delete a custom configuration value for the guild."""

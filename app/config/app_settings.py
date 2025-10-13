@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.config import get_env_file_path
@@ -14,6 +15,11 @@ class AppSettings(BaseSettings):
     default_model: str = "openai/gpt-5-mini"
     fact_check_model: str = "perplexity/sonar"
     qotd_model: str = "x-ai/grok-beta"
+    
+    # Logging settings
+    log_level: int = logging.INFO
+    discord_log_level: int = logging.WARNING
+    aiosqlite_log_level: int = logging.ERROR
 
     model_config = SettingsConfigDict(
         env_file=get_env_file_path(cfg_type="app"),

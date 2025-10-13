@@ -1,6 +1,5 @@
 import asyncio
 import io
-import logging
 import traceback
 from functools import cached_property
 
@@ -37,8 +36,9 @@ from agents import set_default_openai_client
 
 from app.utils.interaction_utils import send
 from app.views.paginated import PaginationView
+from app.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Stocks(commands.GroupCog, name="stock"):

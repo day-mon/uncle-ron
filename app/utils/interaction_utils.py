@@ -1,10 +1,11 @@
-import logging
 from typing import overload
 
 import discord
 from discord import Interaction, InteractionResponse
 
-logger = logging.getLogger(__name__)
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @overload
@@ -45,4 +46,7 @@ async def send(
         else:
             await response.send_message(content, ephemeral=ephemeral, embed=embed)
     except Exception:
-        logger.exception(f"Failed to send message safely")
+        try:
+            await interaction.followup.send(content, ephemeral=ephemeral, embed=embed)
+        except Exception:
+            logger.exception("Failed to send followup message")

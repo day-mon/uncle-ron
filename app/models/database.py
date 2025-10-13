@@ -37,6 +37,9 @@ class GuildSettings(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
     )
+    
+    # Relationship with ThreadSettings
+    threads = relationship("ThreadSettings", back_populates="guild")
 
     def get_settings_dict(self) -> Dict[str, Any]:
         """Get the JSON settings as a dictionary."""

@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.models.database import (
     Base,
@@ -10,6 +10,12 @@ from app.models.database import (
     GuildSettingUpdate,
     ThreadSettings,
 )
+from app.models.links import LinkEntry
+from sqlalchemy import select, func
+from typing import List, Tuple, Optional
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Database:
@@ -23,16 +29,19 @@ class Database:
 
     async def connect(self):
         """Initialize database connection and create tables if they don't exist."""
+        logger.info(f"🔌 Connecting to database at {self.db_url}")
         self.engine = create_async_engine(self.db_url, echo=False)
         self.session_factory = async_sessionmaker(self.engine, expire_on_commit=False)
 
         # Create tables
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            logger.info("✅ Database tables created/verified")
 
     async def close(self):
-        """Close database connection."""
+        """Close the database connection."""
         if self.engine:
+            logger.info("🔌 Closing database connection")
             await self.engine.dispose()
 
     async def get_guild_settings(self, guild_id: int) -> GuildSettingsSchema:
@@ -120,6 +129,106 @@ class Database:
     async def get_session(self) -> AsyncSession:
         """Get a database session."""
         return self.session_factory()
+        
+    async def store_link_entry(self, guild_id: int, user_id: int, hostname: str, url: str) -> None:
+        """Store a link entry in the database."""
+        async with self.session_factory() as session:
+            link_entry = LinkEntry(
+                guild_id=guild_id,
+                user_id=user_id,
+                hostname=hostname,
+                url=url
+            )
+            session.add(link_entry)
+            await session.commit()
+            
+    async def get_link_leaderboard(self, guild_id: int) -> Optional[Tuple[List[Tuple[int, int]], List[Tuple[str, int]], int]]:
+        """Get link leaderboard data for a guild."""
+        async with self.session_factory() as session:
+            user_query = select(
+                LinkEntry.user_id,
+                func.count(LinkEntry.id).label("link_count")
+            ).where(
+                LinkEntry.guild_id == guild_id
+            ).group_by(
+                LinkEntry.user_id
+            ).order_by(
+                func.count(LinkEntry.id).desc()
+            ).limit(5)
+            
+            if not (user_stats := [(user_id, count) for user_id, count in (await session.execute(user_query))]):
+                user_stats = []
+            
+            domain_query = select(
+                LinkEntry.hostname,
+                func.count(LinkEntry.id).label("link_count")
+            ).where(
+                LinkEntry.guild_id == guild_id
+            ).group_by(
+                LinkEntry.hostname
+            ).order_by(
+                func.count(LinkEntry.id).desc()
+            ).limit(5)
+            
+            if not (domain_stats := [(hostname, count) for hostname, count in (await session.execute(domain_query))]):
+                domain_stats = []
+            
+            total_query = select(func.count(LinkEntry.id)).where(LinkEntry.guild_id == guild_id)
+            total_links = (await session.execute(total_query)).scalar() or 0
+            
+            if not user_stats and not domain_stats and total_links == 0:
+                return None
+                
+            return user_stats, domain_stats, total_links
+            
+    async def get_user_link_stats(self, guild_id: int, user_id: int) -> Tuple[List[Tuple[str, int]], int, int]:
+        """Get link statistics for a specific user in a guild.
+        
+        Returns:
+            Tuple containing:
+            - List of (hostname, link_count) tuples for user's top domains
+            - Total link count for the user
+            - User's rank in the guild
+        """
+        async with self.session_factory() as session:
+            # Get user's top domains
+            domain_query = select(
+                LinkEntry.hostname,
+                func.count(LinkEntry.id).label("link_count")
+            ).where(
+                LinkEntry.guild_id == guild_id,
+                LinkEntry.user_id == user_id
+            ).group_by(
+                LinkEntry.hostname
+            ).order_by(
+                func.count(LinkEntry.id).desc()
+            ).limit(5)
+            
+            domain_stats = [(hostname, count) for hostname, count in (await session.execute(domain_query))]
+            
+            # Get total count for user
+            total_query = select(func.count(LinkEntry.id)).where(
+                LinkEntry.guild_id == guild_id,
+                LinkEntry.user_id == user_id
+            )
+            total_links = (await session.execute(total_query)).scalar() or 0
+            
+            # Get user rank
+            rank_query = select(
+                LinkEntry.user_id,
+                func.count(LinkEntry.id).label("link_count")
+            ).where(
+                LinkEntry.guild_id == guild_id
+            ).group_by(
+                LinkEntry.user_id
+            ).order_by(
+                func.count(LinkEntry.id).desc()
+            )
+            
+            all_users = [(uid, count) for uid, count in (await session.execute(rank_query))]
+            user_rank = next((i + 1 for i, (uid, _) in enumerate(all_users) if uid == user_id), 0)
+            
+            return domain_stats, total_links, user_rank
 
 
 db = Database()

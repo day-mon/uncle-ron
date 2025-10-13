@@ -1,23 +1,26 @@
-import logging
 import asyncio
+import os
+from pathlib import Path
 
 from discord.ext import commands
 from discord import Intents
 
 from app.config.app_settings import settings
 from app.database import db
+from app.utils.logger import setup_logging, get_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
+# Configure pretty logging
+log_file = os.getenv("LOG_FILE", None)
+setup_logging(
+    level=settings.log_level,
+    log_file=log_file,
+    module_levels={
+        "discord": settings.discord_log_level,
+        "aiosqlite": settings.aiosqlite_log_level,
+    }
 )
-logging.getLogger("aiosqlite").setLevel(logging.ERROR)
-logging.getLogger("asyncio").setLevel(logging.ERROR)
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class UncleRon(commands.AutoShardedBot):
@@ -68,7 +71,8 @@ class UncleRon(commands.AutoShardedBot):
 
 def main():
     bot = UncleRon()
-    bot.run(token=settings.token, log_level=logging.ERROR)
+    logger.info("🚀 Starting Uncle Ron Bot")
+    bot.run(token=settings.token, log_level=settings.discord_log_level)
 
 
 if __name__ == "__main__":
