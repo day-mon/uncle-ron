@@ -9,7 +9,6 @@ from app.config.app_settings import settings
 from app.database import db
 from app.utils.logger import setup_logging, get_logger
 
-# Configure pretty logging
 log_file = os.getenv("LOG_FILE", None)
 setup_logging(
     level=settings.log_level,
