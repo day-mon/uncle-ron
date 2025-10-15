@@ -54,7 +54,6 @@ class Settings(Cog):
             inline=False,
         )
 
-        # Add additional settings if they exist
         json_settings = await db.get_guild_settings_json(ctx.guild.id)
         if json_settings and hasattr(json_settings, "settings_json"):
             embed.add_field(
@@ -73,6 +72,41 @@ class Settings(Cog):
         embed = EmbedBuilder.error_embed(
             title="Error",
             description="An error occurred while retrieving the guild settings.",
+        ).build()
+        await ctx.send(embed=embed)
+
+
+    @hybrid_command(
+        name="getconfig",
+        description="Get a custom configuration value",
+    )
+    @app_commands.check(guild_only_check)
+    @app_commands.describe(key="The configuration key to retrieve")
+    async def get_config(self, ctx: Context, *, key: str):
+        """Get a custom configuration value for the guild."""
+        current_settings = await db.get_guild_settings_json(ctx.guild.id)
+
+        if not current_settings:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Not Found",
+                description="No configuration settings found for this guild.",
+            ).build()
+            await ctx.send(embed=embed)
+            return
+
+        settings_dict = current_settings.to_dict()
+
+        if not settings_dict or key not in settings_dict:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Not Found",
+                description=f"The key `{key}` does not exist in the configuration.",
+            ).build()
+            await ctx.send(embed=embed)
+            return
+
+        embed = EmbedBuilder.info_embed(
+            title="Configuration Value",
+            description=f"**{key}:** `{settings_dict[key]}`",
         ).build()
         await ctx.send(embed=embed)
 
@@ -220,39 +254,6 @@ class Settings(Cog):
 
         await ctx.send(embed=embed, ephemeral=True)
 
-    @hybrid_command(
-        name="getconfig",
-        description="Get a custom configuration value",
-    )
-    @app_commands.check(guild_only_check)
-    @app_commands.describe(key="The configuration key to retrieve")
-    async def get_config(self, ctx: Context, *, key: str):
-        """Get a custom configuration value for the guild."""
-        current_settings = await db.get_guild_settings_json(ctx.guild.id)
-
-        if not current_settings:
-            embed = EmbedBuilder.error_embed(
-                title="Configuration Not Found",
-                description="No configuration settings found for this guild.",
-            ).build()
-            await ctx.send(embed=embed)
-            return
-
-        settings_dict = current_settings.to_dict()
-
-        if not settings_dict or key not in settings_dict:
-            embed = EmbedBuilder.error_embed(
-                title="Configuration Not Found",
-                description=f"The key `{key}` does not exist in the configuration.",
-            ).build()
-            await ctx.send(embed=embed)
-            return
-
-        embed = EmbedBuilder.info_embed(
-            title="Configuration Value",
-            description=f"**{key}:** `{settings_dict[key]}`",
-        ).build()
-        await ctx.send(embed=embed)
 
     @hybrid_command(
         name="delconfig",
