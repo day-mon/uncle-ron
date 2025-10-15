@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
 
 from pydantic import BaseModel, field_validator, Field, ConfigDict
 from sqlalchemy import (
@@ -8,11 +8,9 @@ from sqlalchemy import (
     DateTime,
     String,
     Text,
-    create_engine,
     Column,
     ForeignKey,
 )
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 import json
@@ -37,22 +35,22 @@ class GuildSettings(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
     )
-    
+
     # Relationship with ThreadSettings
     threads = relationship("ThreadSettings", back_populates="guild")
 
-    def get_settings_dict(self) -> Dict[str, Any]:
+    def get_settings_dict(self) -> dict[str, Any]:
         """Get the JSON settings as a dictionary."""
         try:
             return json.loads(self.settings_json) if self.settings_json else {}
         except json.JSONDecodeError:
             return {}
 
-    def set_settings_dict(self, settings: Dict[str, Any]) -> None:
+    def set_settings_dict(self, settings: dict[str, Any]) -> None:
         """Set the JSON settings from a dictionary."""
         self.settings_json = json.dumps(settings)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the model to a dictionary."""
         return {
             "guild_id": self.guild_id,

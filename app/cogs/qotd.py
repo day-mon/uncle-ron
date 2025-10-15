@@ -7,7 +7,10 @@ from datetime import datetime, time, timezone, timedelta
 import discord
 from discord import app_commands
 from discord.ext.commands import Bot, Cog, hybrid_command, Context
-from app.utils.check_utils import guild_only_check, feature_enabled_check, create_feature_check
+from app.utils.check_utils import (
+    guild_only_check,
+    create_feature_check,
+)
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionUserMessageParam,
@@ -36,12 +39,11 @@ class QOTD(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
         self.qotd_task = None
-        
+
     @cached_property
     def logger(self):
         """Get a logger for this cog."""
         return get_logger(self.__class__.__name__)
-
 
     @cached_property
     def client(self):
@@ -208,7 +210,7 @@ class QOTD(Cog):
         ).build()
 
         await channel.send(embed=embed, poll=poll)
-        logger.info(
+        self.logger.info(
             f"📝 Posted QOTD poll ({qotd_data.poll_type}) to {channel.guild.name}#{channel.name}"
         )
 
@@ -222,9 +224,10 @@ class QOTD(Cog):
         """Manually trigger a Question of the Day."""
         await ctx.defer(ephemeral=True)
         await self.create_and_post_qotd(ctx.channel)
-        await ctx.interaction.followup.send(
-            "✅ Question of the Day posted!", ephemeral=True
-        )
+        if ctx.interaction and hasattr(ctx.interaction, "followup"):
+            await ctx.interaction.followup.send(
+                "✅ Question of the Day posted!", ephemeral=True
+            )
 
     @qotd.error
     async def qotd_error(self, ctx: Context, error: Exception):
@@ -241,14 +244,29 @@ class QOTD(Cog):
     @app_commands.describe(
         channel="The channel where QOTD should be posted (leave empty for current channel)"
     )
-    async def qotd_channel(self, ctx: Context, *, channel: discord.TextChannel = None):
+    async def qotd_channel(
+        self, ctx: Context, *, channel: discord.TextChannel | None = None
+    ):
         """Set the channel for QOTD posts."""
         # Use current channel if no channel specified
         channel = channel or ctx.channel
 
         current_settings = await db.get_guild_settings_json(ctx.guild.id)
-        current_settings["qotd_channel_id"] = channel.id
-        await db.update_guild_settings_json(ctx.guild.id, current_settings)
+
+        # Convert GuildSettings to dictionary
+        settings_dict: dict[str, Any] = {}
+        if current_settings:
+            try:
+                settings_dict = current_settings.to_dict()
+            except AttributeError:
+                try:
+                    settings_dict = current_settings.get_settings_dict()
+                except (TypeError, ValueError):
+                    pass
+
+        # Update the channel ID
+        settings_dict["qotd_channel_id"] = channel.id
+        await db.update_guild_settings_json(ctx.guild.id, settings_dict)
 
         await ctx.send(
             f"✅ QOTD will now be posted to {channel.mention}!", ephemeral=True

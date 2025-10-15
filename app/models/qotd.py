@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import List
 from enum import Enum
 
 
@@ -33,7 +32,7 @@ class QOTDResponse(BaseModel):
     def options(self):
         return [self.option_a, self.option_b, self.option_c, self.option_d]
 
-    def get_emoji_options(self) -> List[str]:
+    def get_emoji_options(self) -> list[str]:
         """Get options with emoji prefixes."""
         emojis = ["🇦", "🇧", "🇨", "🇩"]
         return [f"{emojis[i]} {option}" for i, option in enumerate(self.options)]

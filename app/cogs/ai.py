@@ -6,12 +6,8 @@ from discord import (
     Interaction,
     app_commands,
     ChannelType,
-    Thread,
-    InteractionResponse,
-    Webhook,
 )
-from discord.ext.commands import Cog, Bot, hybrid_command, Context
-from dotenv.variables import Literal
+from discord.ext.commands import Cog, Bot, Context
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionUserMessageParam,
@@ -19,7 +15,6 @@ from openai.types.chat import (
     ChatCompletion,
 )
 from propcache import cached_property
-from pydantic import validate_call, Field
 import discord
 from app.constants import FACT_CHECK_SYSTEM_PROMPT, FACT_CHECK_USER_PROMPT
 
@@ -77,23 +72,25 @@ class AI(Cog):
 
     async def obtain_thread(
         self, interaction: discord.Interaction, question: str, model: str
-    ) -> tuple[discord.Thread, str]:
-        channel = interaction.channel
+    ) -> tuple[discord.Thread | discord.TextChannel, str]:
+        if not (channel := interaction.channel):
+            raise ValueError("Channel not available")
 
-        # If we're already in a thread, use it
         if channel.type in (ChannelType.public_thread, ChannelType.private_thread):
             if stored_model := await db.get_thread_model(channel.id):
                 return channel, stored_model
 
-            await db.set_thread_model(interaction.guild.id, channel.id, model)
+            if interaction.guild and channel and hasattr(channel, "id"):
+                await db.set_thread_model(interaction.guild.id, channel.id, model)
             return channel, model
 
-        # Create a new thread with the question as the title
         thread_name = (
             f"Question: {question[:50]}…"
             if len(question) > 50
             else f"Question: {question}"
         )
+        if not channel or not hasattr(channel, "create_thread"):
+            raise ValueError("Channel does not support thread creation")
         thread = await channel.create_thread(
             name=thread_name,
             type=ChannelType.public_thread,
@@ -101,7 +98,8 @@ class AI(Cog):
         )
 
         # Store the model used for this thread
-        await db.set_thread_model(interaction.guild.id, thread.id, model)
+        if interaction.guild:
+            await db.set_thread_model(interaction.guild.id, thread.id, model)
         return thread, model
 
     @app_commands.command(
@@ -124,12 +122,11 @@ class AI(Cog):
         max_tokens: app_commands.Range[int, 1, 500] = 500,
     ):
         await interaction.response.defer(ephemeral=False)
-        
-        # Send initial message without creating a thread
+
         initial_message = await interaction.followup.send(
             f"🚀 Hey {interaction.user.mention}, we're sending your request to the AI with your prompt:\n```\n{question}\n```"
         )
-        
+
         # Get AI response
         oai_response: ChatCompletion = await self.client.chat.completions.create(
             model=model,
@@ -140,16 +137,16 @@ class AI(Cog):
             ],
         )
         ai_text = oai_response.choices[0].message.content
-        
+
         # Now that we have a response, obtain the thread
         thread, model = await self.obtain_thread(interaction, question, model)
-        
+
         # Send the AI response in the thread
         await thread.send(
             f"💡 **Question from {interaction.user.mention}:**\n```\n{question}\n```\n\n"
             f"🤖 **Answer (using {model}):**\n```\n{ai_text}\n```"
         )
-        
+
         # Edit the original message to point to the thread
         await initial_message.edit(
             content=f"✅ Your question has been answered in {thread.mention}."
@@ -159,13 +156,18 @@ class AI(Cog):
     async def ask_error(self, interaction: discord.Interaction, error: Exception):
         # Try to find the initial message to update it
         try:
-            async for message in interaction.channel.history(limit=10):
-                if message.author == self.bot.user and message.content.startswith(f"🚀 Hey {interaction.user.mention}"):
-                    await message.edit(content=f"❌ Error processing your request: {str(error)}")
+            if interaction.channel and hasattr(interaction.channel, "history"):
+                async for message in interaction.channel.history(limit=10):
+                    if message.author == self.bot.user and message.content.startswith(
+                        f"🚀 Hey {interaction.user.mention}"
+                    ):
+                        await message.edit(
+                            content=f"❌ Error processing your request: {str(error)}"
+                        )
                     return
         except:
             pass
-            
+
         # Fallback to sending a new message if we can't find the initial one
         await send(
             interaction=interaction,
@@ -178,7 +180,7 @@ class AI(Cog):
         channel: discord.TextChannel,
         before_message: discord.Message,
         count: int,
-        user_filter: discord.User = None,
+        user_filter: discord.User | None = None,
     ) -> list[discord.Message]:
         """
         Fetch context messages before a given message.
@@ -218,7 +220,7 @@ class AI(Cog):
         message: discord.Message,
         context_messages: list[discord.Message],
         result,
-        user_filter: discord.User = None,
+        user_filter: discord.User | None = None,
     ) -> str:
         """
         Generate a detailed Markdown report of the fact-check results.
@@ -235,8 +237,8 @@ class AI(Cog):
         lines = [
             "# Fact Check Report",
             f"\n**Generated:** {discord.utils.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}",
-            f"\n---\n",
-            f"## Original Message",
+            "\n---\n",
+            "## Original Message",
             f"\n**Author:** {message.author.name} (ID: {message.author.id})",
             f"**Timestamp:** {message.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
             f"**Message ID:** {message.id}",
@@ -274,13 +276,13 @@ class AI(Cog):
                     f"#### Claim {idx}: {verdict_emoji[claim.verdict]} {claim.verdict}"
                 )
                 lines.append(f"\n**Confidence:** {claim.confidence}")
-                lines.append(f"\n**Claim Statement:**")
+                lines.append("\n**Claim Statement:**")
                 lines.append(f"> {claim.claim}")
-                lines.append(f"\n**Explanation:**")
+                lines.append("\n**Explanation:**")
                 lines.append(claim.explanation)
 
                 if claim.context_needed:
-                    lines.append(f"\n**Additional Context:**")
+                    lines.append("\n**Additional Context:**")
                     lines.append(claim.context_needed)
 
                 lines.append("")  # Empty line for spacing
@@ -388,9 +390,11 @@ class AI(Cog):
         if not match:
             return interaction.channel
         guild_id, channel_id, message_id = map(int, match.groups())
-        if guild_id != interaction.guild.id:
-            raise None
-        return interaction.channel.guild.get_channel(channel_id)
+        if interaction.guild and guild_id != interaction.guild.id:
+            raise ValueError("Cannot access messages from other guilds")
+        if interaction.channel and interaction.channel.guild:
+            return interaction.channel.guild.get_channel(channel_id)
+        raise ValueError("Cannot access channel")
 
     @staticmethod
     def _build_status_message(

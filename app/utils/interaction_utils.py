@@ -1,7 +1,7 @@
 from typing import overload
 
 import discord
-from discord import Interaction, InteractionResponse
+from discord import Interaction
 
 from app.utils.logger import get_logger
 
@@ -14,7 +14,7 @@ async def send(
     *,
     content: str,
     ephemeral: bool = False,
-    embed: discord.Embed = None,
+    embed: discord.Embed | None = None,
 ): ...
 
 
@@ -33,7 +33,7 @@ async def send(
     *,
     content: str | None = None,
     ephemeral: bool = True,
-    embed: discord.Embed = None,
+    embed: discord.Embed | None = None,
 ):
     """
     Sends a message to the interaction, using response or followup as appropriate.

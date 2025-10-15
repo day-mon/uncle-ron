@@ -1,7 +1,5 @@
 import logging
 import sys
-from typing import Optional, Dict, Any
-import datetime
 from pathlib import Path
 
 # ANSI color codes for pretty terminal output
@@ -49,7 +47,7 @@ LEVEL_COLORS = {
 class ColoredFormatter(logging.Formatter):
     """Custom formatter to add colors and emojis to log messages"""
 
-    def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None):
+    def __init__(self, fmt: str | None = None, datefmt: str | None = None):
         super().__init__(fmt, datefmt)
 
     def format(self, record: logging.LogRecord) -> str:
@@ -61,29 +59,29 @@ class ColoredFormatter(logging.Formatter):
         # Add color and emoji to level name
         level_color = LEVEL_COLORS.get(levelname, COLORS["RESET"])
         level_prefix = LEVEL_PREFIXES.get(levelname, "")
-        
+
         # Format the record with colors
         record.levelname = f"{level_color}{level_prefix} {levelname}{COLORS['RESET']}"
         record.name = f"{COLORS['BLUE']}{COLORS['BOLD']}{name}{COLORS['RESET']}"
-        
+
         # Format the message
         formatted_msg = super().format(record)
-        
+
         # Restore original values
         record.levelname = levelname
         record.name = name
-        
+
         return formatted_msg
 
 
 def setup_logging(
     level: int = logging.INFO,
-    log_file: Optional[str] = None,
-    module_levels: Optional[Dict[str, int]] = None,
+    log_file: str | None = None,
+    module_levels: dict[str, int] | None = None,
 ) -> None:
     """
     Set up logging with pretty formatting
-    
+
     Args:
         level: The base logging level
         log_file: Optional file path to write logs to
@@ -92,44 +90,44 @@ def setup_logging(
     # Create formatters
     console_formatter = ColoredFormatter(
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    
+
     file_formatter = logging.Formatter(
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
-    
+
     # Set up root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
-    
+
     # Clear existing handlers
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-    
+
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(console_formatter)
     console_handler.setLevel(level)
     root_logger.addHandler(console_handler)
-    
+
     # File handler (if specified)
     if log_file:
         # Ensure directory exists
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(file_formatter)
         file_handler.setLevel(level)
         root_logger.addHandler(file_handler)
-    
+
     # Set specific module levels
     if module_levels:
         for module, module_level in module_levels.items():
             logging.getLogger(module).setLevel(module_level)
-    
+
     # Set lower levels for some noisy libraries
     logging.getLogger("discord").setLevel(logging.WARNING)
     logging.getLogger("discord.http").setLevel(logging.WARNING)
@@ -141,10 +139,10 @@ def setup_logging(
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger with the given name
-    
+
     Args:
         name: The name of the logger
-        
+
     Returns:
         A configured logger instance
     """

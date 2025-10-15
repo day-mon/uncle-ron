@@ -3,7 +3,7 @@ Embed builder utility for creating Discord embeds with common patterns.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Any
 from discord import Embed
 
 
@@ -12,17 +12,22 @@ class EmbedBuilder:
 
     def __init__(self):
         self._embed = Embed()
-        
+
     @staticmethod
-    def create(title: str = None, description: str = None, color = None, timestamp: datetime = None) -> Embed:
+    def create(
+        title: str | None = None,
+        description: str | None = None,
+        color=None,
+        timestamp: datetime | None = None,
+    ) -> Embed:
         """Create and return an Embed directly with common parameters.
-        
+
         Args:
             title: The embed title
             description: The embed description
             color: The embed color
             timestamp: The embed timestamp (defaults to current time if None)
-            
+
         Returns:
             A configured Discord Embed object
         """
@@ -48,7 +53,7 @@ class EmbedBuilder:
         self._embed.color = color
         return self
 
-    def timestamp(self, timestamp: Optional[datetime] = None) -> "EmbedBuilder":
+    def timestamp(self, timestamp: datetime | None = None) -> "EmbedBuilder":
         """Set the embed timestamp."""
         if timestamp is None:
             timestamp = datetime.now(timezone.utc)
@@ -60,7 +65,7 @@ class EmbedBuilder:
         self._embed.add_field(name=name, value=value, inline=inline)
         return self
 
-    def add_fields(self, fields: List[Dict[str, Any]]) -> "EmbedBuilder":
+    def add_fields(self, fields: list[dict[str, Any]]) -> "EmbedBuilder":
         """Add multiple fields to the embed."""
         for field in fields:
             self._embed.add_field(
@@ -70,7 +75,7 @@ class EmbedBuilder:
             )
         return self
 
-    def footer(self, text: str, icon_url: Optional[str] = None) -> "EmbedBuilder":
+    def footer(self, text: str, icon_url: str | None = None) -> "EmbedBuilder":
         """Set the embed footer."""
         self._embed.set_footer(text=text, icon_url=icon_url)
         return self
@@ -86,7 +91,7 @@ class EmbedBuilder:
         return self
 
     def author(
-        self, name: str, url: Optional[str] = None, icon_url: Optional[str] = None
+        self, name: str, url: str | None = None, icon_url: str | None = None
     ) -> "EmbedBuilder":
         """Set the embed author."""
         self._embed.set_author(name=name, url=url, icon_url=icon_url)

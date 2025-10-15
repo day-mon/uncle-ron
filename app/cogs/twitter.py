@@ -33,7 +33,7 @@ class Twitter(commands.Cog):
         await message.reply(
             content=f"{fixed_url}\n*Originally posted by {message.author.display_name}*",
             view=view,
-            mention_author=False
+            mention_author=False,
         )
 
         await message.delete()

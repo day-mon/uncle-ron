@@ -1,4 +1,3 @@
-import os
 import logging
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -6,8 +5,8 @@ from app.config import get_env_file_path
 
 
 class AppSettings(BaseSettings):
-    token: str
-    openrouter_api_key: str
+    token: str = ""
+    openrouter_api_key: str = ""
     openai_api_key: str | None = None
     prefix: str = "$"
     cogs_dir: str = "app/cogs"
@@ -15,7 +14,10 @@ class AppSettings(BaseSettings):
     default_model: str = "openai/gpt-5-mini"
     fact_check_model: str = "perplexity/sonar"
     qotd_model: str = "x-ai/grok-beta"
-    
+
+    # Database settings
+    reset_database: bool = False
+
     # Logging settings
     log_level: int = logging.INFO
     discord_log_level: int = logging.WARNING

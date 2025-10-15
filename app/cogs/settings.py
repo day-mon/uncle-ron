@@ -1,13 +1,11 @@
 import discord
-from discord import Interaction, app_commands
+from discord import app_commands
 from discord.ext.commands import (
     Cog,
     Bot,
     hybrid_command,
     Context,
-    has_guild_permissions,
 )
-from discord.app_commands import Range
 
 from app.database import db
 from app.utils import EmbedBuilder
@@ -19,7 +17,7 @@ from propcache import cached_property
 class Settings(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
-        
+
     @cached_property
     def logger(self):
         """Get a logger for this cog."""
@@ -34,7 +32,6 @@ class Settings(Cog):
     @app_commands.check(guild_only_check)
     async def view_settings(self, ctx: Context):
         """View the current guild settings."""
-
         settings = await db.get_guild_settings(ctx.guild.id)
 
         embed = discord.Embed(
@@ -57,14 +54,36 @@ class Settings(Cog):
             inline=False,
         )
 
-        if settings := await db.get_guild_settings_json(ctx.guild.id):
+        # Add additional settings if they exist
+        json_settings = await db.get_guild_settings_json(ctx.guild.id)
+        if json_settings and hasattr(json_settings, "settings_json"):
             embed.add_field(
                 name="⚙️ Additional Settings",
-                value=f"```json\n{str(settings.settings_json)[:500]}{'...' if len(str(settings.settings_json)) > 500 else ''}\n```",
+                value=f"```json\n{str(json_settings.settings_json)[:500]}{'...' if len(str(json_settings.settings_json)) > 500 else ''}\n```",
                 inline=False,
             )
 
         embed.set_footer(text=f"Guild ID: {ctx.guild.id}")
+        await ctx.send(embed=embed)
+
+    @view_settings.error
+    async def view_settings_error(self, ctx: Context, error):
+        """Handle errors for view_settings command"""
+        self.logger.error(f"Error in view_settings for guild {ctx.guild.id}: {error}")
+        embed = EmbedBuilder.error_embed(
+            title="Error",
+            description="An error occurred while retrieving the guild settings.",
+        ).build()
+        await ctx.send(embed=embed)
+
+    @get_config.error
+    async def get_config_error(self, ctx: Context, error):
+        """Handle errors for get_config command"""
+        self.logger.error(f"Error in get_config for guild {ctx.guild.id}: {error}")
+        embed = EmbedBuilder.error_embed(
+            title="Error",
+            description="An error occurred while retrieving the configuration.",
+        ).build()
         await ctx.send(embed=embed)
 
     @hybrid_command(
@@ -113,6 +132,16 @@ class Settings(Cog):
             description=f"**{feature_names[feature.lower()]}** has been enabled for this guild!",
         ).build()
 
+        await ctx.send(embed=embed, ephemeral=True)
+
+    @set_config.error
+    async def set_config_error(self, ctx: Context, error):
+        """Handle errors for set_config command"""
+        self.logger.error(f"Error in set_config for guild {ctx.guild.id}: {error}")
+        embed = EmbedBuilder.error_embed(
+            title="Error",
+            description="An error occurred while updating the configuration.",
+        ).build()
         await ctx.send(embed=embed, ephemeral=True)
 
     @hybrid_command(
@@ -170,11 +199,19 @@ class Settings(Cog):
     @app_commands.describe(key="The configuration key", value="The configuration value")
     async def set_config(self, ctx: Context, *, key: str, value: str):
         """Set a custom configuration value for the guild."""
-
         current_settings = await db.get_guild_settings_json(ctx.guild.id)
 
-        current_settings[key] = value
-        await db.update_guild_settings_json(ctx.guild.id, current_settings)
+        if not current_settings:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Error",
+                description="No configuration settings found for this guild.",
+            ).build()
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+
+        settings_dict = current_settings.to_dict()
+        settings_dict[key] = value
+        await db.update_guild_settings_json(ctx.guild.id, settings_dict)
 
         embed = EmbedBuilder.success_embed(
             title="Configuration Updated",
@@ -191,22 +228,30 @@ class Settings(Cog):
     @app_commands.describe(key="The configuration key to retrieve")
     async def get_config(self, ctx: Context, *, key: str):
         """Get a custom configuration value for the guild."""
-
         current_settings = await db.get_guild_settings_json(ctx.guild.id)
 
-        if key not in current_settings:
+        if not current_settings:
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
-                description=f"Configuration key `{key}` not found.",
+                description="No configuration settings found for this guild.",
             ).build()
-            await ctx.send(embed=embed, ephemeral=True)
+            await ctx.send(embed=embed)
+            return
+
+        settings_dict = current_settings.to_dict()
+
+        if not settings_dict or key not in settings_dict:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Not Found",
+                description=f"The key `{key}` does not exist in the configuration.",
+            ).build()
+            await ctx.send(embed=embed)
             return
 
         embed = EmbedBuilder.info_embed(
             title="Configuration Value",
-            description=f"**{key}:** `{current_settings[key]}`",
+            description=f"**{key}:** `{settings_dict[key]}`",
         ).build()
-
         await ctx.send(embed=embed)
 
     @hybrid_command(
@@ -218,25 +263,45 @@ class Settings(Cog):
     @app_commands.describe(key="The configuration key to delete")
     async def del_config(self, ctx: Context, *, key: str):
         """Delete a custom configuration value for the guild."""
-
         current_settings = await db.get_guild_settings_json(ctx.guild.id)
 
-        if key not in current_settings:
+        if not current_settings:
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
-                description=f"Configuration key `{key}` not found.",
+                description="No configuration settings found for this guild.",
             ).build()
             await ctx.send(embed=embed, ephemeral=True)
             return
 
-        del current_settings[key]
-        await db.update_guild_settings_json(ctx.guild.id, current_settings)
+        settings_dict = current_settings.to_dict()
+
+        if not settings_dict or key not in settings_dict:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Not Found",
+                description=f"The key `{key}` does not exist in the configuration.",
+            ).build()
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+
+        # Remove the key from settings
+        del settings_dict[key]
+        await db.update_guild_settings_json(ctx.guild.id, settings_dict)
 
         embed = EmbedBuilder.success_embed(
             title="Configuration Deleted",
             description=f"Configuration key `{key}` deleted!",
         ).build()
 
+        await ctx.send(embed=embed, ephemeral=True)
+
+    @del_config.error
+    async def del_config_error(self, ctx: Context, error):
+        """Handle errors for del_config command"""
+        self.logger.error(f"Error in del_config for guild {ctx.guild.id}: {error}")
+        embed = EmbedBuilder.error_embed(
+            title="Error",
+            description="An error occurred while deleting the configuration.",
+        ).build()
         await ctx.send(embed=embed, ephemeral=True)
 
 

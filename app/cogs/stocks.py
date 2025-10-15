@@ -1,6 +1,5 @@
 import asyncio
 import io
-import traceback
 from functools import cached_property
 
 import discord
@@ -11,7 +10,6 @@ from agents import (
     Agent,
     set_tracing_disabled,
     Runner,
-    RunConfig,
     RunItemStreamEvent,
     RawResponsesStreamEvent,
     ModelSettings,
@@ -29,8 +27,15 @@ from app.utils.ai.tools import (
     get_cash_flow_statement,
     get_balance_sheet,
     web_search,
-    get_news, get_company_info, get_price_history, get_key_metrics, get_analyst_recommendations, get_insider_trades,
-    get_institutional_holders, compare_stocks, sandboxed_financial_analysis,
+    get_news,
+    get_company_info,
+    get_price_history,
+    get_key_metrics,
+    get_analyst_recommendations,
+    get_insider_trades,
+    get_institutional_holders,
+    compare_stocks,
+    sandboxed_financial_analysis,
 )
 from agents import set_default_openai_client
 
@@ -51,8 +56,7 @@ class Stocks(commands.GroupCog, name="stock"):
     def client(self):
         return AsyncOpenAI(
             api_key=settings.openai_api_key,
-            http_client=httpx.AsyncClient(
-            ),
+            http_client=httpx.AsyncClient(),
         )
 
     @cached_property
@@ -612,7 +616,7 @@ class Stocks(commands.GroupCog, name="stock"):
         if raw and not question:
             embed = EmbedBuilder.error_embed(
                 title="Incomplete usage",
-                description=f"You must provide a question if you are using `raw=True`.",
+                description="You must provide a question if you are using `raw=True`.",
             ).build()
             await send(
                 interaction,
@@ -646,9 +650,7 @@ class Stocks(commands.GroupCog, name="stock"):
         status_msg = await interaction.followup.send(embed=status_embed)
 
         response = Runner.run_streamed(
-            starting_agent=self.stock_analysis_agent,
-            input=prompt,
-            max_turns=15
+            starting_agent=self.stock_analysis_agent, input=prompt, max_turns=15
         )
 
         tool_calls = []
@@ -710,8 +712,6 @@ class Stocks(commands.GroupCog, name="stock"):
 
     @analyze.error
     async def analyze_error(self, interaction: Interaction, error: Exception):
-        import traceback
-
         traceback.print_exc()
         embed = EmbedBuilder.error_embed(
             "Error", f"Unable to perform analysis:\n```{error}```"

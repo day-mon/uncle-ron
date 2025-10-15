@@ -7,16 +7,18 @@ import yfinance as yf
 from agents import function_tool
 from duckduckgo_search import DDGS
 
+from app.utils.logger import get_logger
 
+logger = get_logger(__name__)
 
 
 def _safe_financial_analysis(
     analysis_code: str,
     *,
     income_statement: dict[str, Any] | None = None,
-    balance_sheet:  dict[str, Any] | None = None,
-    cash_flow:  dict[str, Any] | None = None,
-) -> dict:
+    balance_sheet: dict[str, Any] | None = None,
+    cash_flow: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Run dynamic financial analysis safely using a sandboxed environment.
 
@@ -30,13 +32,15 @@ def _safe_financial_analysis(
         dict with results or error
     """
 
-    income = pd.DataFrame(income_statement["data"]).T if income_statement else pd.DataFrame()
+    income = (
+        pd.DataFrame(income_statement["data"]).T if income_statement else pd.DataFrame()
+    )
     balance = pd.DataFrame(balance_sheet["data"]).T if balance_sheet else pd.DataFrame()
     cash = pd.DataFrame(cash_flow["data"]).T if cash_flow else pd.DataFrame()
 
-    income = income.apply(pd.to_numeric, errors='coerce')
-    balance = balance.apply(pd.to_numeric, errors='coerce')
-    cash = cash.apply(pd.to_numeric, errors='coerce')
+    income = income.apply(pd.to_numeric, errors="coerce")
+    balance = balance.apply(pd.to_numeric, errors="coerce")
+    cash = cash.apply(pd.to_numeric, errors="coerce")
 
     safe_builtins = {
         "abs": abs,
@@ -53,15 +57,23 @@ def _safe_financial_analysis(
         "cash": cash,
         "np": np,
         "pd": pd,
-        "output": {}
+        "output": {},
     }
 
     try:
         # Execute code safely
         exec(analysis_code, {"__builtins__": safe_builtins}, safe_locals)
-        return safe_locals.get("output", {})
+        output = safe_locals.get("output", {})
+        # Ensure we return a dict[str, Any]
+        result: dict[str, Any] = {}
+        if output is not None and isinstance(output, dict):
+            for k, v in output.items():
+                if isinstance(k, str):
+                    result[k] = v
+        return result
     except Exception as e:
         return {"error": f"Analysis failed: {e}"}
+
 
 def _fetch_price(ticker: str, period: str = "1d"):
     """Fetch current or recent price data."""
@@ -149,9 +161,11 @@ def _fetch_price_history(ticker: str, period: str = "1y", interval: str = "1d"):
             "high": float(df["High"].max()),
             "low": float(df["Low"].min()),
             "avg_volume": float(df["Volume"].mean()),
-            "return_pct": round(((df["Close"].iloc[-1] / df["Close"].iloc[0]) - 1) * 100, 2),
+            "return_pct": round(
+                ((df["Close"].iloc[-1] / df["Close"].iloc[0]) - 1) * 100, 2
+            ),
             "volatility": round(float(df["Close"].pct_change().std() * 100), 2),
-        }
+        },
     }
 
 
@@ -199,7 +213,7 @@ def _fetch_key_metrics(ticker: str):
             "dividend_yield": info.get("dividendYield"),
             "payout_ratio": info.get("payoutRatio"),
             "five_year_avg_dividend_yield": info.get("fiveYearAvgDividendYield"),
-        }
+        },
     }
 
 
@@ -263,14 +277,23 @@ def _fetch_institutional_holders(ticker: str):
     return result if len(result) > 1 else {"error": f"No holder data for {ticker}"}
 
 
-def _compare_stocks(tickers: list[str], metrics: list[str] = None):
+def _compare_stocks(tickers: list[str], metrics: list[str] | None = None):
     """Compare key metrics across multiple stocks."""
     if metrics is None:
         metrics = [
-            "marketCap", "trailingPE", "forwardPE", "priceToBook",
-            "profitMargins", "operatingMargins", "returnOnEquity",
-            "revenueGrowth", "earningsGrowth", "debtToEquity",
-            "currentRatio", "freeCashflow", "dividendYield"
+            "marketCap",
+            "trailingPE",
+            "forwardPE",
+            "priceToBook",
+            "profitMargins",
+            "operatingMargins",
+            "returnOnEquity",
+            "revenueGrowth",
+            "earningsGrowth",
+            "debtToEquity",
+            "currentRatio",
+            "freeCashflow",
+            "dividendYield",
         ]
 
     comparison = {}
@@ -281,7 +304,7 @@ def _compare_stocks(tickers: list[str], metrics: list[str] = None):
         comparison[ticker] = {
             "company_name": info.get("longName"),
             "sector": info.get("sector"),
-            **{metric: info.get(metric) for metric in metrics}
+            **{metric: info.get(metric) for metric in metrics},
         }
 
     return {"comparison": comparison, "metrics_compared": metrics}
@@ -386,7 +409,9 @@ async def get_company_info(ticker: str) -> dict:
 
 
 @function_tool
-async def get_price_history(ticker: str, period: str = "1y", interval: str = "1d") -> dict:
+async def get_price_history(
+    ticker: str, period: str = "1y", interval: str = "1d"
+) -> dict:
     """
     Get historical price data for technical and trend analysis.
 
@@ -450,7 +475,9 @@ async def get_institutional_holders(ticker: str) -> dict:
 
 
 @function_tool
-async def compare_stocks(tickers: list[str], metrics: list[str] = None) -> dict:
+async def compare_stocks(
+    tickers: list[str], metrics: list[str] | None = None
+) -> dict[str, Any]:
     """
     Compare key metrics across multiple stocks for peer analysis.
 
@@ -488,11 +515,9 @@ async def get_news(query: str, max_results: int = 5) -> list:
     """
     return await asyncio.to_thread(_search_news, query, max_results)
 
+
 @function_tool
-async def sandboxed_financial_analysis(
-    ticker: str,
-    analysis_code: str
-) -> dict:
+async def sandboxed_financial_analysis(ticker: str, analysis_code: str) -> dict:
     """
     Run sandboxed dynamic financial analysis. The agent can provide custom
     Python code using `income`, `balance`, `cash` DataFrames. Must assign results to `output`.
@@ -500,9 +525,22 @@ async def sandboxed_financial_analysis(
 
     ticker = ticker.upper()
 
-    income_statement: dict[str, Any] = await asyncio.to_thread(_fetch_income_statement, ticker, "annual")
-    balance_sheet: dict[str, Any] = await asyncio.to_thread(_fetch_balance_sheet, ticker, "annual")
-    cash_flow: dict[str, Any] = await asyncio.to_thread(_fetch_cash_flow, ticker, "annual")
+    income_statement, balance_sheet, cash_flow = await asyncio.gather(
+        *[
+            asyncio.to_thread(_fetch_income_statement, ticker, "annual"),
+            asyncio.to_thread(_fetch_balance_sheet, ticker, "annual"),
+            asyncio.to_thread(_fetch_cash_flow, ticker, "annual"),
+        ],
+        return_exceptions=True,
+    )
+
+    if any(
+        isinstance(e, Exception) for e in [income_statement, balance_sheet, cash_flow]
+    ):
+        logger.error(
+            f"Error fetching financial data for {ticker}: {income_statement or balance_sheet or cash_flow}"
+        )
+        raise Exception("Error fetching financial data")
 
     return await asyncio.to_thread(
         _safe_financial_analysis,

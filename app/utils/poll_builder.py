@@ -3,7 +3,6 @@ Poll builder utility for creating Discord polls with common patterns.
 """
 
 from datetime import timedelta
-from typing import List, Optional, Union
 from discord import Poll, PollAnswer, PartialEmoji, Emoji
 
 
@@ -12,10 +11,10 @@ class PollBuilder:
 
     def __init__(self, question: str, duration: timedelta):
         self._poll = Poll(question=question, duration=duration)
-        self._answers: List[PollAnswer] = []
+        self._answers: list[PollAnswer] = []
 
     def add_answer(
-        self, text: str, emoji: Optional[Union[PartialEmoji, Emoji, str]] = None
+        self, text: str, emoji: PartialEmoji | Emoji | str | None = None
     ) -> "PollBuilder":
         """Add an answer to the poll."""
         self._poll.add_answer(text=text, emoji=emoji)
@@ -23,8 +22,8 @@ class PollBuilder:
 
     def add_answers(
         self,
-        answers: List[str],
-        emojis: Optional[List[Union[PartialEmoji, Emoji, str]]] = None,
+        answers: list[str],
+        emojis: list[PartialEmoji | Emoji | str] | None = None,
     ) -> "PollBuilder":
         """Add multiple answers to the poll."""
         for i, answer in enumerate(answers):
@@ -38,7 +37,7 @@ class PollBuilder:
 
     @classmethod
     def simple_poll(
-        cls, question: str, answers: List[str], duration_hours: int = 24
+        cls, question: str, answers: list[str], duration_hours: int = 24
     ) -> "PollBuilder":
         """Create a simple poll with text answers."""
         return cls(
@@ -49,8 +48,8 @@ class PollBuilder:
     def emoji_poll(
         cls,
         question: str,
-        answers: List[str],
-        emojis: List[str],
+        answers: list[str],
+        emojis: list[str],
         duration_hours: int = 24,
     ) -> "PollBuilder":
         """Create a poll with emoji answers."""

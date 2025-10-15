@@ -1,6 +1,4 @@
-import asyncio
 import os
-from pathlib import Path
 
 from discord.ext import commands
 from discord import Intents
@@ -16,7 +14,7 @@ setup_logging(
     module_levels={
         "discord": settings.discord_log_level,
         "aiosqlite": settings.aiosqlite_log_level,
-    }
+    },
 )
 
 logger = get_logger(__name__)
@@ -32,7 +30,7 @@ class UncleRon(commands.AutoShardedBot):
 
     async def setup_hook(self):
         """This runs before the bot is marked 'ready'."""
-        await db.connect()
+        await db.connect(reset_database=settings.reset_database)
         logger.info("🗄️ Database connected")
 
         for cog in settings.cogs:
