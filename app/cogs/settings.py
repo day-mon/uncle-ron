@@ -134,6 +134,36 @@ class Settings(Cog):
 
         await ctx.send(embed=embed, ephemeral=True)
 
+    @hybrid_command(
+        name="setconfig",
+        description="Set a custom configuration value",
+    )
+    @app_commands.check(guild_only_check)
+    @app_commands.check(is_admin_check)
+    @app_commands.describe(key="The configuration key", value="The configuration value")
+    async def set_config(self, ctx: Context, *, key: str, value: str):
+        """Set a custom configuration value for the guild."""
+        current_settings = await db.get_guild_settings_json(ctx.guild.id)
+
+        if not current_settings:
+            embed = EmbedBuilder.error_embed(
+                title="Configuration Error",
+                description="No configuration settings found for this guild.",
+            ).build()
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+
+        settings_dict = current_settings.to_dict()
+        settings_dict[key] = value
+        await db.update_guild_settings_json(ctx.guild.id, settings_dict)
+
+        embed = EmbedBuilder.success_embed(
+            title="Configuration Updated",
+            description=f"Configuration `{key}` set to `{value}` for this guild!",
+        ).build()
+
+        await ctx.send(embed=embed, ephemeral=True)
+
     @set_config.error
     async def set_config_error(self, ctx: Context, error):
         """Handle errors for set_config command"""
@@ -186,36 +216,6 @@ class Settings(Cog):
         embed = EmbedBuilder.error_embed(
             title=f"{feature_names[feature.lower()]} Disabled",
             description=f"**{feature_names[feature.lower()]}** has been disabled for this guild!",
-        ).build()
-
-        await ctx.send(embed=embed, ephemeral=True)
-
-    @hybrid_command(
-        name="setconfig",
-        description="Set a custom configuration value",
-    )
-    @app_commands.check(guild_only_check)
-    @app_commands.check(is_admin_check)
-    @app_commands.describe(key="The configuration key", value="The configuration value")
-    async def set_config(self, ctx: Context, *, key: str, value: str):
-        """Set a custom configuration value for the guild."""
-        current_settings = await db.get_guild_settings_json(ctx.guild.id)
-
-        if not current_settings:
-            embed = EmbedBuilder.error_embed(
-                title="Configuration Error",
-                description="No configuration settings found for this guild.",
-            ).build()
-            await ctx.send(embed=embed, ephemeral=True)
-            return
-
-        settings_dict = current_settings.to_dict()
-        settings_dict[key] = value
-        await db.update_guild_settings_json(ctx.guild.id, settings_dict)
-
-        embed = EmbedBuilder.success_embed(
-            title="Configuration Updated",
-            description=f"Configuration `{key}` set to `{value}` for this guild!",
         ).build()
 
         await ctx.send(embed=embed, ephemeral=True)
