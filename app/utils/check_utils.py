@@ -4,7 +4,7 @@ Utility module for centralized Discord command checks.
 
 import discord
 from discord.ext import commands
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Coroutine, Any
 
 from app.database import Database
 from app.utils.logger import get_logger
@@ -130,7 +130,7 @@ async def is_admin_check(ctx: commands.Context | discord.Interaction) -> bool:
 # Helper functions to create feature check functions for specific features
 def create_feature_check(
     feature: str,
-) -> Callable[[commands.Context | discord.Interaction], Awaitable[bool]]:
+) -> Callable[[commands.Context | discord.Interaction], Coroutine[Any, Any, bool]]:
     """
     Create a feature check function for a specific feature.
 

@@ -75,7 +75,6 @@ class Settings(Cog):
         ).build()
         await ctx.send(embed=embed)
 
-
     @hybrid_command(
         name="getconfig",
         description="Get a custom configuration value",
@@ -253,7 +252,6 @@ class Settings(Cog):
         ).build()
 
         await ctx.send(embed=embed, ephemeral=True)
-
 
     @hybrid_command(
         name="delconfig",

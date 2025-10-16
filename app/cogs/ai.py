@@ -65,9 +65,9 @@ class AI(Cog):
     async def model_autocomplete(self, interaction: Interaction, current: str):
         models = await self.client.models.list()
         return [
-            app_commands.Choice(name=m["name"], value=m["name"])
-            for m in models["data"]
-            if current.lower() in m["name"].lower()
+            app_commands.Choice(name=m.id, value=m.id)
+            for m in models.data
+            if current.lower() in m.id.lower()
         ][:25]
 
     async def obtain_thread(
@@ -165,7 +165,7 @@ class AI(Cog):
                             content=f"❌ Error processing your request: {str(error)}"
                         )
                     return
-        except:
+        except Exception:
             pass
 
         # Fallback to sending a new message if we can't find the initial one
@@ -551,7 +551,7 @@ class AI(Cog):
                 ):
                     await msg.edit(content=f"❌ Error during fact-check: {str(error)}")
                     return
-        except:
+        except Exception:
             pass
 
         await ctx.send(f"❌ Error during fact-check: {str(error)}", ephemeral=True)

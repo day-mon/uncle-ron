@@ -83,6 +83,20 @@ class GuildSettingsSchema(BaseModel):
             raise ValueError("guild_id must be positive")
         return v
 
+    @field_validator("settings_json", mode="before")
+    @classmethod
+    def validate_settings_json(cls, v: Any) -> dict[str, Any]:
+        """Convert string JSON to dictionary if needed."""
+        if isinstance(v, str):
+            try:
+                return json.loads(v) if v else {}
+            except json.JSONDecodeError:
+                return {}
+        elif isinstance(v, dict):
+            return v
+        else:
+            return {}
+
 
 class GuildSettingUpdate(BaseModel):
     """Schema for updating a single guild setting."""

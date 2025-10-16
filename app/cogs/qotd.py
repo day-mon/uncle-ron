@@ -20,10 +20,8 @@ from propcache import cached_property
 from app.config.app_settings import settings
 from app.database import db
 from app.constants import QOTD_SYSTEM_PROMPT
-from app.models.database import GuildSettings
 from app.models.qotd import QOTDResponse
 from app.utils import EmbedBuilder, PollBuilder
-import json
 from app.utils.logger import get_logger
 
 
@@ -126,7 +124,7 @@ class QOTD(Cog):
         for guild in self.bot.guilds:
             try:
                 settings = await db.get_guild_settings(guild.id)
-                if not settings.settings_json.get("qotd_enabled", False):
+                if not settings.qotd_enabled:
                     continue
 
                 if channel := await self.get_qotd_channel(guild, settings):
@@ -135,17 +133,14 @@ class QOTD(Cog):
             except Exception as e:
                 self.logger.error(f"❌ Error posting QOTD to guild {guild.name}: {e}")
 
-    async def get_qotd_channel(self, guild, settings: GuildSettings):
+    async def get_qotd_channel(self, guild, settings):
         """Get the configured QOTD channel for a guild."""
         # Check if there's a configured channel
         json_settings = settings.settings_json
-        if isinstance(json_settings, str):
-            json_settings = json.loads(json_settings)
 
-        if not (configured_channel_id := json_settings.get("qotd_channel_id")) and (
-            channel := guild.get_channel(configured_channel_id)
-        ):
-            return channel
+        if configured_channel_id := json_settings.get("qotd_channel_id"):
+            if channel := guild.get_channel(configured_channel_id):
+                return channel
 
         return guild.text_channels[0] if guild.text_channels else None
 
