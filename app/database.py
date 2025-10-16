@@ -41,12 +41,10 @@ class Database:
             logger.warning("⚠️ Database backup only supported for SQLite databases")
             return
 
-        # Extract the database file path from the URL
         db_path = self.db_url.replace("sqlite+aiosqlite:///", "")
         db_file = Path(db_path)
 
         if db_file.exists():
-            # Create backup with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = (
                 db_file.parent / f"{db_file.stem}_backup_{timestamp}{db_file.suffix}"
@@ -56,7 +54,6 @@ class Database:
                 shutil.copy2(db_file, backup_path)
                 logger.info(f"📦 Database backed up to: {backup_path}")
 
-                # Remove the original database file
                 db_file.unlink()
                 logger.info(f"🗑️ Original database removed: {db_file}")
 
@@ -69,7 +66,6 @@ class Database:
     async def connect(self, reset_database: bool = False) -> None:
         """Initialize database connection and create tables if they don't exist."""
         try:
-            # Handle database reset if requested
             if reset_database:
                 logger.info("🔄 Database reset requested")
                 self.backup_and_reset_database()
@@ -80,7 +76,6 @@ class Database:
                 self.engine, expire_on_commit=False
             )
 
-            # Create tables
             async with self.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
                 logger.info("✅ Database tables created/verified")

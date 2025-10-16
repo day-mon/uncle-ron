@@ -6,14 +6,12 @@ import discord
 from discord.ext import commands
 from typing import Callable, Awaitable, Coroutine, Any
 
-from app.database import Database
+from app.database import db
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 type CheckFunction[T] = Callable[[T], Awaitable[bool]]
-
-db = Database()
 
 
 async def guild_only_check(ctx: commands.Context | discord.Interaction) -> bool:
@@ -127,7 +125,6 @@ async def is_admin_check(ctx: commands.Context | discord.Interaction) -> bool:
     return False
 
 
-# Helper functions to create feature check functions for specific features
 def create_feature_check(
     feature: str,
 ) -> Callable[[commands.Context | discord.Interaction], Coroutine[Any, Any, bool]]:
