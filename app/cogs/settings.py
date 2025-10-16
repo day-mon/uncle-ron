@@ -45,11 +45,17 @@ class Settings(Cog):
             timestamp=discord.utils.utcnow(),
         )
 
-        # Dynamically build feature status using the model
+        # Build feature status using dictionary mapping
+        feature_values = {
+            "ai_enabled": settings.ai_enabled,
+            "fact_check_enabled": settings.fact_check_enabled,
+            "grok_enabled": settings.grok_enabled,
+            "qotd_enabled": settings.qotd_enabled,
+        }
+        
         feature_statuses = []
         for feature in self.feature_settings.features:
-            # Get the current status from the settings object
-            current_status = getattr(settings, feature.value, False)
+            current_status = feature_values.get(feature.value, False)
             status_text = "✅ Enabled" if current_status else "❌ Disabled"
             feature_statuses.append(f"**{feature.description}:** {status_text}")
 
@@ -60,7 +66,7 @@ class Settings(Cog):
         )
 
         json_settings = await db.get_guild_settings_json(ctx.guild.id)
-        if json_settings and hasattr(json_settings, "settings_json"):
+        if json_settings and json_settings.settings_json:
             embed.add_field(
                 name="⚙️ Additional Settings",
                 value=f"```json\n{str(json_settings.settings_json)[:500]}{'...' if len(str(json_settings.settings_json)) > 500 else ''}\n```",

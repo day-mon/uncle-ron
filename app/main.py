@@ -1,3 +1,4 @@
+import logging
 import os
 
 from discord.ext import commands
@@ -12,8 +13,8 @@ setup_logging(
     level=settings.log_level,
     log_file=log_file,
     module_levels={
-        "discord": settings.discord_log_level,
-        "aiosqlite": settings.aiosqlite_log_level,
+        "discord": logging.ERROR,
+        "aiosqlite": logging.ERROR,
     },
 )
 
@@ -69,7 +70,7 @@ class UncleRon(commands.AutoShardedBot):
 def main():
     bot = UncleRon()
     logger.info("🚀 Starting Uncle Ron Bot")
-    bot.run(token=settings.token, log_level=settings.discord_log_level)
+    bot.run(token=settings.token, log_level=settings.log_level)
 
 
 if __name__ == "__main__":
