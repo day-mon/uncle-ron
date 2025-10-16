@@ -3,34 +3,38 @@ from discord import app_commands
 from discord.ext.commands import (
     Cog,
     Bot,
-    hybrid_command,
+    hybrid_group,
     Context,
 )
 
 from app.database import db
+from app.models.settings import FeatureSettings
 from app.utils import EmbedBuilder
 from app.utils.check_utils import guild_only_check, is_admin_check
 from app.utils.logger import get_logger
 from propcache import cached_property
 
+# Module-level instance for use in decorators
+_feature_settings = FeatureSettings()
+
 
 class Settings(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
+        self.feature_settings = FeatureSettings()
 
     @cached_property
     def logger(self):
         """Get a logger for this cog."""
         return get_logger(self.__class__.__name__)
 
-    # Using centralized checks from app.utils.check_utils
-
-    @hybrid_command(
+    @hybrid_group(
         name="settings",
-        description="View current guild settings",
+        description="Manage guild settings and configuration",
+        fallback="view"
     )
     @app_commands.check(guild_only_check)
-    async def view_settings(self, ctx: Context):
+    async def settings_group(self, ctx: Context):
         """View the current guild settings."""
         settings = await db.get_guild_settings(ctx.guild.id)
 
@@ -41,16 +45,17 @@ class Settings(Cog):
             timestamp=discord.utils.utcnow(),
         )
 
-        ai_status = "✅ Enabled" if settings.ai_enabled else "❌ Disabled"
-        fact_check_status = (
-            "✅ Enabled" if settings.fact_check_enabled else "❌ Disabled"
-        )
-        grok_status = "✅ Enabled" if settings.grok_enabled else "❌ Disabled"
-        qotd_status = "✅ Enabled" if settings.qotd_enabled else "❌ Disabled"
+        # Dynamically build feature status using the model
+        feature_statuses = []
+        for feature in self.feature_settings.features:
+            # Get the current status from the settings object
+            current_status = getattr(settings, feature.value, False)
+            status_text = "✅ Enabled" if current_status else "❌ Disabled"
+            feature_statuses.append(f"**{feature.description}:** {status_text}")
 
         embed.add_field(
             name="🤖 AI Features",
-            value=f"**Ask Command:** {ai_status}\n**Fact Check:** {fact_check_status}\n**Grok AI:** {grok_status}\n**QOTD:** {qotd_status}",
+            value="\n".join(feature_statuses),
             inline=False,
         )
 
@@ -65,27 +70,94 @@ class Settings(Cog):
         embed.set_footer(text=f"Guild ID: {ctx.guild.id}")
         await ctx.send(embed=embed)
 
-    @view_settings.error
-    async def view_settings_error(self, ctx: Context, error):
-        """Handle errors for view_settings command"""
-        self.logger.error(f"Error in view_settings for guild {ctx.guild.id}: {error}")
+    @settings_group.error
+    async def settings_group_error(self, ctx: Context, error):
+        """Handle errors for settings group"""
+        self.logger.error(f"Error in settings group for guild {ctx.guild.id}: {error}")
         embed = EmbedBuilder.error_embed(
             title="Error",
             description="An error occurred while retrieving the guild settings.",
         ).build()
         await ctx.send(embed=embed)
 
-    @hybrid_command(
-        name="getconfig",
-        description="Get a custom configuration value",
+    @settings_group.command(
+        name="enable",
+        description="Enable a feature for this guild",
+    )
+    @app_commands.check(is_admin_check)
+    @app_commands.describe(
+        feature=f"The feature to enable. Choose from: {', '.join(_feature_settings.feature_map.keys())}",
+    )
+    async def enable_feature(self, ctx: Context, *, feature: str):
+        """Enable a specific feature for the guild."""
+        if (feature_key := feature.lower()) not in self.feature_settings.feature_map:
+            available_features = ", ".join(f"`{f}`" for f in self.feature_settings.feature_map.keys())
+            await ctx.send(
+                f"❌ Invalid feature. Available options: {available_features}",
+                ephemeral=True,
+            )
+            return
+
+        setting_name = self.feature_settings.feature_map[feature_key]
+
+        try:
+            await db.update_guild_setting(ctx.guild.id, setting_name, True)
+        except ValueError as e:
+            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
+            return
+
+        feature_name = self.feature_settings.feature_names[feature_key]
+        embed = EmbedBuilder.success_embed(
+            title=f"{feature_name} Enabled",
+            description=f"**{feature_name}** has been enabled for this guild!",
+        ).build()
+
+        await ctx.send(embed=embed, ephemeral=True)
+
+    @settings_group.command(
+        name="disable",
+        description="Disable a feature for this guild",
+    )
+    @app_commands.check(is_admin_check)
+    @app_commands.describe(
+        feature=f"The feature to disable. Choose from: {', '.join(_feature_settings.feature_map.keys())}"
+    )
+    async def disable_feature(self, ctx: Context, *, feature: str):
+        """Disable a specific feature for the guild."""
+        if (feature_key := feature.lower()) not in self.feature_settings.feature_map:
+            available_features = ", ".join(f"`{f}`" for f in self.feature_settings.feature_map.keys())
+            await ctx.send(
+                f"❌ Invalid feature. Available options: {available_features}",
+                ephemeral=True,
+            )
+            return
+
+        setting_name = self.feature_settings.feature_map[feature_key]
+
+        try:
+            await db.update_guild_setting(ctx.guild.id, setting_name, False)
+        except ValueError as e:
+            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
+            return
+
+        feature_name = self.feature_settings.feature_names[feature_key]
+        embed = EmbedBuilder.error_embed(
+            title=f"{feature_name} Disabled",
+            description=f"**{feature_name}** has been disabled for this guild!",
+        ).build()
+
+        await ctx.send(embed=embed, ephemeral=True)
+
+    @hybrid_group(
+        name="config",
+        description="Manage custom configuration values",
+        fallback="get"
     )
     @app_commands.check(guild_only_check)
     @app_commands.describe(key="The configuration key to retrieve")
-    async def get_config(self, ctx: Context, *, key: str):
+    async def config_group(self, ctx: Context, *, key: str):
         """Get a custom configuration value for the guild."""
-        current_settings = await db.get_guild_settings_json(ctx.guild.id)
-
-        if not current_settings:
+        if not (current_settings := await db.get_guild_settings_json(ctx.guild.id)):
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
                 description="No configuration settings found for this guild.",
@@ -93,9 +165,7 @@ class Settings(Cog):
             await ctx.send(embed=embed)
             return
 
-        settings_dict = current_settings.to_dict()
-
-        if not settings_dict or key not in settings_dict:
+        if not (settings_dict := current_settings.to_dict()) or key not in settings_dict:
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
                 description=f"The key `{key}` does not exist in the configuration.",
@@ -109,76 +179,25 @@ class Settings(Cog):
         ).build()
         await ctx.send(embed=embed)
 
-    @get_config.error
-    async def get_config_error(self, ctx: Context, error):
-        """Handle errors for get_config command"""
-        self.logger.error(f"Error in get_config for guild {ctx.guild.id}: {error}")
+    @config_group.error
+    async def config_group_error(self, ctx: Context, error):
+        """Handle errors for config group"""
+        self.logger.error(f"Error in config group for guild {ctx.guild.id}: {error}")
         embed = EmbedBuilder.error_embed(
             title="Error",
             description="An error occurred while retrieving the configuration.",
         ).build()
         await ctx.send(embed=embed)
 
-    @hybrid_command(
-        name="enable",
-        description="Enable a feature for this guild",
-    )
-    @app_commands.check(guild_only_check)
-    @app_commands.check(is_admin_check)
-    @app_commands.describe(
-        feature="The feature to enable, Choose from: ai, factcheck, grok, qotd",
-    )
-    async def enable_feature(self, ctx: Context, *, feature: str):
-        """Enable a specific feature for the guild."""
-
-        feature_map = {
-            "ai": "ai_enabled",
-            "factcheck": "fact_check_enabled",
-            "grok": "grok_enabled",
-            "qotd": "qotd_enabled",
-        }
-
-        if feature.lower() not in feature_map:
-            await ctx.send(
-                "❌ Invalid feature. Available options: `ai`, `factcheck`, `grok`, `qotd`",
-                ephemeral=True,
-            )
-            return
-
-        setting_name = feature_map[feature.lower()]
-
-        try:
-            await db.update_guild_setting(ctx.guild.id, setting_name, True)
-        except ValueError as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
-            return
-
-        feature_names = {
-            "ai": "AI Ask Command",
-            "factcheck": "Fact Check",
-            "grok": "Grok AI",
-            "qotd": "Question of the Day",
-        }
-
-        embed = EmbedBuilder.success_embed(
-            title=f"{feature_names[feature.lower()]} Enabled",
-            description=f"**{feature_names[feature.lower()]}** has been enabled for this guild!",
-        ).build()
-
-        await ctx.send(embed=embed, ephemeral=True)
-
-    @hybrid_command(
-        name="setconfig",
+    @config_group.command(
+        name="set",
         description="Set a custom configuration value",
     )
-    @app_commands.check(guild_only_check)
     @app_commands.check(is_admin_check)
     @app_commands.describe(key="The configuration key", value="The configuration value")
-    async def set_config(self, ctx: Context, *, key: str, value: str):
+    async def set_config(self, ctx: Context, key: str, value: str):
         """Set a custom configuration value for the guild."""
-        current_settings = await db.get_guild_settings_json(ctx.guild.id)
-
-        if not current_settings:
+        if not (current_settings := await db.get_guild_settings_json(ctx.guild.id)):
             embed = EmbedBuilder.error_embed(
                 title="Configuration Error",
                 description="No configuration settings found for this guild.",
@@ -207,64 +226,15 @@ class Settings(Cog):
         ).build()
         await ctx.send(embed=embed, ephemeral=True)
 
-    @hybrid_command(
-        name="disable",
-        description="Disable a feature for this guild",
-    )
-    @app_commands.check(guild_only_check)
-    @app_commands.check(is_admin_check)
-    @app_commands.describe(feature="The feature to disable (ai, factcheck, grok, qotd)")
-    async def disable_feature(self, ctx: Context, *, feature: str):
-        """Disable a specific feature for the guild."""
-
-        feature_map = {
-            "ai": "ai_enabled",
-            "factcheck": "fact_check_enabled",
-            "grok": "grok_enabled",
-            "qotd": "qotd_enabled",
-        }
-
-        if feature.lower() not in feature_map:
-            await ctx.send(
-                "❌ Invalid feature. Available options: `ai`, `factcheck`, `grok`, `qotd`",
-                ephemeral=True,
-            )
-            return
-
-        setting_name = feature_map[feature.lower()]
-
-        try:
-            await db.update_guild_setting(ctx.guild.id, setting_name, False)
-        except ValueError as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
-            return
-
-        feature_names = {
-            "ai": "AI Ask Command",
-            "factcheck": "Fact Check",
-            "grok": "Grok AI",
-            "qotd": "Question of the Day",
-        }
-
-        embed = EmbedBuilder.error_embed(
-            title=f"{feature_names[feature.lower()]} Disabled",
-            description=f"**{feature_names[feature.lower()]}** has been disabled for this guild!",
-        ).build()
-
-        await ctx.send(embed=embed, ephemeral=True)
-
-    @hybrid_command(
-        name="delconfig",
+    @config_group.command(
+        name="delete",
         description="Delete a custom configuration value",
     )
-    @app_commands.check(guild_only_check)
     @app_commands.check(is_admin_check)
     @app_commands.describe(key="The configuration key to delete")
-    async def del_config(self, ctx: Context, *, key: str):
+    async def delete_config(self, ctx: Context, *, key: str):
         """Delete a custom configuration value for the guild."""
-        current_settings = await db.get_guild_settings_json(ctx.guild.id)
-
-        if not current_settings:
+        if not (current_settings := await db.get_guild_settings_json(ctx.guild.id)):
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
                 description="No configuration settings found for this guild.",
@@ -272,9 +242,7 @@ class Settings(Cog):
             await ctx.send(embed=embed, ephemeral=True)
             return
 
-        settings_dict = current_settings.to_dict()
-
-        if not settings_dict or key not in settings_dict:
+        if not (settings_dict := current_settings.to_dict()) or key not in settings_dict:
             embed = EmbedBuilder.error_embed(
                 title="Configuration Not Found",
                 description=f"The key `{key}` does not exist in the configuration.",
@@ -293,10 +261,10 @@ class Settings(Cog):
 
         await ctx.send(embed=embed, ephemeral=True)
 
-    @del_config.error
-    async def del_config_error(self, ctx: Context, error):
-        """Handle errors for del_config command"""
-        self.logger.error(f"Error in del_config for guild {ctx.guild.id}: {error}")
+    @delete_config.error
+    async def delete_config_error(self, ctx: Context, error):
+        """Handle errors for delete_config command"""
+        self.logger.error(f"Error in delete_config for guild {ctx.guild.id}: {error}")
         embed = EmbedBuilder.error_embed(
             title="Error",
             description="An error occurred while deleting the configuration.",

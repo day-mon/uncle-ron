@@ -24,14 +24,16 @@ class Twitter(commands.Cog):
         if not (guild := message.guild):
             return
 
+
+
+        url = self._is_url(message.content)
+        if not url or url.hostname != "x.com":
+            return
+
         can_delete = guild.me.guild_permissions.manage_messages
 
         if not can_delete:
             await message.add_reaction("😔")
-            return
-
-        url = self._is_url(message.content)
-        if not url or url.hostname != "x.com":
             return
 
         fixed_url = message.content.split("?")[0].replace(url.hostname, "fixupx.com")

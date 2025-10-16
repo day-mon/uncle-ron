@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 from typing import Callable, Awaitable, Coroutine, Any
 
+from app.config.app_settings import settings
 from app.database import db
 from app.utils.logger import get_logger
 
@@ -105,6 +106,10 @@ async def is_admin_check(ctx: commands.Context | discord.Interaction) -> bool:
         if guild is None:
             await ctx.send("This command can only be used in a server.")
             return False
+
+    # Check if user is a developer (overrides admin check)
+    if user.id in settings.developer_ids:
+        return True
 
     member = guild.get_member(user.id)
     if member is None:

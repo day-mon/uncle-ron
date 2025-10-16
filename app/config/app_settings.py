@@ -1,7 +1,42 @@
 import logging
 from pathlib import Path
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.config import get_env_file_path
+
+
+class FeatureMapping(BaseModel):
+    """Pydantic model for feature mapping configuration."""
+    ai: str = "ai_enabled"
+    factcheck: str = "fact_check_enabled"
+    grok: str = "grok_enabled"
+    qotd: str = "qotd_enabled"
+
+    def get_mapping_dict(self) -> dict[str, str]:
+        """Return the feature mapping as a dictionary."""
+        return {
+            "ai": self.ai,
+            "factcheck": self.factcheck,
+            "grok": self.grok,
+            "qotd": self.qotd,
+        }
+
+
+class FeatureNames(BaseModel):
+    """Pydantic model for feature display names."""
+    ai: str = "AI Ask Command"
+    factcheck: str = "Fact Check"
+    grok: str = "Grok AI"
+    qotd: str = "Question of the Day"
+
+    def get_names_dict(self) -> dict[str, str]:
+        """Return the feature names as a dictionary."""
+        return {
+            "ai": self.ai,
+            "factcheck": self.factcheck,
+            "grok": self.grok,
+            "qotd": self.qotd,
+        }
 
 
 class AppSettings(BaseSettings):
@@ -15,13 +50,19 @@ class AppSettings(BaseSettings):
     fact_check_model: str = "perplexity/sonar"
     qotd_model: str = "x-ai/grok-beta"
 
-    # Database settings
     reset_database: bool = False
+
+    # Developer settings
+    developer_ids: list[int] = []
 
     # Logging settings
     log_level: int = logging.INFO
     discord_log_level: int = logging.WARNING
     aiosqlite_log_level: int = logging.ERROR
+
+    # Feature configuration
+    feature_mapping: FeatureMapping = FeatureMapping()
+    feature_names: FeatureNames = FeatureNames()
 
     model_config = SettingsConfigDict(
         env_file=get_env_file_path(cfg_type="app"),
