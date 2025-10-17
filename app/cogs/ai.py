@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 class AI(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.threads = set()
+        self.active_interactions = set()  # Simple set to track active interactions
 
     @cached_property
     def client(self):
@@ -122,9 +122,9 @@ class AI(Cog):
         temperature: app_commands.Range[float, 0.01, 1.0] = 0.01,
         max_tokens: app_commands.Range[int, 1, 500] = 500,
     ):
-        await interaction.response.defer(ephemeral=False)
-
-        initial_message = await interaction.followup.send(
+        self.active_interactions.add(interaction.id)
+        
+        await interaction.response.send_message(
             f"🚀 Hey {interaction.user.mention}, we're sending your request to the AI with your prompt:\n```\n{question}\n```"
         )
 
@@ -145,31 +145,32 @@ class AI(Cog):
             f"🤖 **Answer (using {model}):**\n```\n{ai_text}\n```"
         )
 
-        await initial_message.edit(
+        await interaction.edit_original_response(
             content=f"✅ Your question has been answered in {thread.mention}."
         )
+        
+        self.active_interactions.discard(interaction.id)
 
     @ask.error
     async def ask_error(self, interaction: discord.Interaction, error: Exception):
+        self.active_interactions.discard(interaction.id)
+        
         try:
-            if interaction.channel and hasattr(interaction.channel, "history"):
-                async for message in interaction.channel.history(limit=10):
-                    if message.author == self.bot.user and message.content.startswith(
-                        f"🚀 Hey {interaction.user.mention}"
-                    ):
-                        await message.edit(
-                            content=f"❌ Error processing your request: {str(error)}"
-                        )
-                    return
+            await interaction.edit_original_response(
+                content=f"❌ Error processing your request: {str(error)}"
+            )
+            return
         except Exception:
             pass
 
-        # Fallback to sending a new message if we can't find the initial one
-        await send(
-            interaction=interaction,
-            content=f"❌ {type(error).__name__}: {error}",
-            ephemeral=True,
-        )
+        try:
+            await send(
+                interaction=interaction,
+                content=f"❌ {type(error).__name__}: {error}",
+                ephemeral=True,
+            )
+        except Exception:
+            logger.error(f"Failed to send error message for interaction {interaction.id}: {error}")
 
     async def _fetch_context_messages(
         self,
