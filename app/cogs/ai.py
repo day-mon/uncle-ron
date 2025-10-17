@@ -153,7 +153,18 @@ class AI(Cog):
 
     @ask.error
     async def ask_error(self, interaction: discord.Interaction, error: Exception):
+        was_tracked = interaction.id in self.active_interactions
+        
         self.active_interactions.discard(interaction.id)
+        
+        if was_tracked:
+            try:
+                await interaction.edit_original_response(
+                    content=f"❌ Error processing your request: {str(error)}"
+                )
+                return
+            except Exception:
+                pass
         
         try:
             await interaction.edit_original_response(
@@ -170,6 +181,7 @@ class AI(Cog):
                 ephemeral=True,
             )
         except Exception:
+            # Last resort: log the error
             logger.error(f"Failed to send error message for interaction {interaction.id}: {error}")
 
     async def _fetch_context_messages(

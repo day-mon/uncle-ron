@@ -1,5 +1,8 @@
 import logging
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 from discord.ext import commands
 from discord import Intents
@@ -21,6 +24,37 @@ setup_logging(
 logger = get_logger(__name__)
 
 
+async def run_migrations():
+    """Run Alembic migrations on startup."""
+    try:
+        # Get the project root directory (where alembic.ini is located)
+        project_root = Path(__file__).parent.parent
+        
+        logger.info("🔄 Running database migrations...")
+        
+        # Run alembic upgrade head
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        logger.info("✅ Database migrations completed successfully")
+        if result.stdout:
+            logger.debug(f"Migration output: {result.stdout}")
+            
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Migration failed with exit code {e.returncode}")
+        logger.error(f"Error output: {e.stderr}")
+        logger.error(f"Standard output: {e.stdout}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error during migration: {e}")
+        raise
+
+
 class UncleRon(commands.AutoShardedBot):
     def __init__(self):
         super().__init__(
@@ -31,6 +65,9 @@ class UncleRon(commands.AutoShardedBot):
 
     async def setup_hook(self):
         """This runs before the bot is marked 'ready'."""
+        # Run migrations first
+        await run_migrations()
+        
         await db.connect(reset_database=settings.reset_database)
         logger.info("🗄️ Database connected")
 
