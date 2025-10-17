@@ -565,8 +565,7 @@ class AI(Cog):
             context_messages = await self._fetch_thread_history(message.channel, message, count=20)
             conversation_messages = self._format_conversation_for_ai(context_messages, question, message.author)
             
-            # Get stored AI parameters for this thread, or use defaults
-            ai_params = await db.get_thread_ai_parameters(message.channel.id)
+            ai_params = await db.get_thread_ai_parameters(message.channel.id) or {}
             model = ai_params.get('model', settings.default_model)
             temperature = ai_params.get('temperature', 0.7)
             max_tokens = ai_params.get('max_tokens', 500)
