@@ -10,6 +10,8 @@ from sqlalchemy import (
     Text,
     Column,
     ForeignKey,
+    Float,
+    Integer,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -119,5 +121,7 @@ class ThreadSettings(Base):
     thread_id = Column(BigInteger, primary_key=True)
     guild_id = Column(BigInteger, ForeignKey("guild_settings.guild_id"), nullable=False)
     model = Column(String, nullable=False)
+    temperature = Column(Float, nullable=True)
+    max_tokens = Column(Integer, nullable=True)
 
     guild = relationship("GuildSettings", back_populates="threads")

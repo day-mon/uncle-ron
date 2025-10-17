@@ -167,6 +167,34 @@ class Database:
                 session.add(thread)
             await session.commit()
 
+    async def set_thread_ai_parameters(
+        self, 
+        guild_id: int, 
+        thread_id: int, 
+        model: str, 
+        temperature: float = 0.7, 
+        max_tokens: int = 500
+    ) -> None:
+        """Set AI parameters for a thread."""
+        async with self.session_factory() as session:
+            result = await session.execute(
+                select(ThreadSettings).where(ThreadSettings.thread_id == thread_id)
+            )
+            if thread := result.scalar_one_or_none():
+                thread.model = model
+                thread.temperature = temperature
+                thread.max_tokens = max_tokens
+            else:
+                thread = ThreadSettings(
+                    thread_id=thread_id, 
+                    guild_id=guild_id, 
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                session.add(thread)
+            await session.commit()
+
     async def get_thread_model(self, thread_id: int) -> str | None:
         async with self.session_factory() as session:
             result = await session.execute(
@@ -174,6 +202,20 @@ class Database:
             )
             if thread := result.scalar_one_or_none():
                 return thread.model
+            return None
+
+    async def get_thread_ai_parameters(self, thread_id: int) -> dict[str, Any] | None:
+        """Get AI parameters for a thread."""
+        async with self.session_factory() as session:
+            result = await session.execute(
+                select(ThreadSettings).where(ThreadSettings.thread_id == thread_id)
+            )
+            if thread := result.scalar_one_or_none():
+                return {
+                    "model": thread.model,
+                    "temperature": thread.temperature or 0.7,
+                    "max_tokens": thread.max_tokens or 500
+                }
             return None
 
     async def get_session(self) -> AsyncSession:

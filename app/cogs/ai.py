@@ -12,6 +12,7 @@ from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionUserMessageParam,
     ChatCompletionSystemMessageParam,
+    ChatCompletionAssistantMessageParam,
     ChatCompletion,
 )
 from propcache import cached_property
@@ -71,7 +72,7 @@ class AI(Cog):
         ][:25]
 
     async def obtain_thread(
-        self, interaction: discord.Interaction, question: str, model: str
+        self, interaction: discord.Interaction, question: str, model: str, temperature: float, max_tokens: int
     ) -> tuple[discord.Thread | discord.TextChannel, str]:
         if not (channel := interaction.channel):
             raise ValueError("Channel not available")
@@ -81,7 +82,7 @@ class AI(Cog):
                 return channel, stored_model
 
             if interaction.guild and channel and hasattr(channel, "id"):
-                await db.set_thread_model(interaction.guild.id, channel.id, model)
+                await db.set_thread_ai_parameters(interaction.guild.id, channel.id, model, temperature, max_tokens)
             return channel, model
 
         thread_name = (
@@ -97,9 +98,9 @@ class AI(Cog):
             auto_archive_duration=60,
         )
 
-        # Store the model used for this thread
+        # Store all AI parameters for this thread
         if interaction.guild:
-            await db.set_thread_model(interaction.guild.id, thread.id, model)
+            await db.set_thread_ai_parameters(interaction.guild.id, thread.id, model, temperature, max_tokens)
         return thread, model
 
     @app_commands.command(
@@ -127,7 +128,6 @@ class AI(Cog):
             f"🚀 Hey {interaction.user.mention}, we're sending your request to the AI with your prompt:\n```\n{question}\n```"
         )
 
-        # Get AI response
         oai_response: ChatCompletion = await self.client.chat.completions.create(
             model=model,
             max_tokens=max_tokens,
@@ -138,23 +138,19 @@ class AI(Cog):
         )
         ai_text = oai_response.choices[0].message.content
 
-        # Now that we have a response, obtain the thread
-        thread, model = await self.obtain_thread(interaction, question, model)
+        thread, model = await self.obtain_thread(interaction, question, model, temperature, max_tokens)
 
-        # Send the AI response in the thread
         await thread.send(
             f"💡 **Question from {interaction.user.mention}:**\n```\n{question}\n```\n\n"
             f"🤖 **Answer (using {model}):**\n```\n{ai_text}\n```"
         )
 
-        # Edit the original message to point to the thread
         await initial_message.edit(
             content=f"✅ Your question has been answered in {thread.mention}."
         )
 
     @ask.error
     async def ask_error(self, interaction: discord.Interaction, error: Exception):
-        # Try to find the initial message to update it
         try:
             if interaction.channel and hasattr(interaction.channel, "history"):
                 async for message in interaction.channel.history(limit=10):
@@ -445,7 +441,7 @@ class AI(Cog):
 
         Args:
             interaction: The interaction object
-            message_url: Optional message URL to fact check
+            message_url: Optional message UiRL to fact check
             messages_before: Number of messages before the referenced message to include as context (1-20, default: 1)
             user: Optional user filter - only include messages from this user in context
         """
@@ -540,6 +536,143 @@ class AI(Cog):
         )
 
         await original_message.edit(content=None, embed=embed, attachments=[file])
+
+    @Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Handle messages where the bot is mentioned in threads."""
+        if message.author.bot:
+            return
+        
+        if not self.bot.user or self.bot.user not in message.mentions:
+            return
+        
+        if not isinstance(message.channel, discord.Thread):
+            return
+        
+        try:
+            question = message.content
+            for mention in message.mentions:
+                question = question.replace(f"<@{mention.id}>", "").replace(f"<@!{mention.id}>", "")
+
+            if not (question := question.strip()):
+                await message.reply("Please provide a question or prompt along with the mention!")
+                return
+            
+            initial_reply = await message.reply(
+                f"🚀 Hey {message.author.mention}, I'm gathering the conversation history and sending your request to the AI..."
+            )
+            
+            context_messages = await self._fetch_thread_history(message.channel, message, count=20)
+            conversation_messages = self._format_conversation_for_ai(context_messages, question, message.author)
+            
+            # Get stored AI parameters for this thread, or use defaults
+            ai_params = await db.get_thread_ai_parameters(message.channel.id)
+            model = ai_params.get('model', settings.default_model)
+            temperature = ai_params.get('temperature', 0.7)
+            max_tokens = ai_params.get('max_tokens', 500)
+            
+            oai_response: ChatCompletion = await self.client.chat.completions.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=conversation_messages,
+            )
+            ai_text = oai_response.choices[0].message.content
+            
+            await message.reply(
+                f"🤖 **AI Response:**\n```\n{ai_text}\n```"
+            )
+            
+            await initial_reply.edit(
+                content="✅ Your question has been answered with conversation context!"
+            )
+            
+        except Exception as e:
+            logger.error(f"Error handling mention in thread: {e}")
+            await message.reply(f"❌ Sorry, there was an error processing your request: {str(e)}")
+
+    async def _fetch_thread_history(
+        self,
+        thread: discord.Thread,
+        current_message: discord.Message,
+        count: int = 20
+    ) -> list[discord.Message]:
+        """
+        Fetch message history from a thread before the current message.
+        
+        Args:
+            thread: The thread to fetch messages from
+            current_message: The current message to fetch history before
+            count: Number of messages to fetch
+            
+        Returns:
+            List of messages in chronological order
+        """
+        if count <= 0:
+            return []
+        
+        context_messages = []
+        
+        async for msg in thread.history(limit=count + 10, before=current_message):
+            if msg.author.bot:
+                continue
+                
+            context_messages.append(msg)
+            
+            if len(context_messages) >= count:
+                break
+        
+        context_messages.reverse()
+        return context_messages
+
+    def _format_conversation_for_ai(
+        self,
+        context_messages: list[discord.Message],
+        current_question: str,
+        current_author: discord.User
+    ) -> list[ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionSystemMessageParam]:
+        """
+        Format the conversation history and current question for the AI.
+        
+        Args:
+            context_messages: List of previous messages in chronological order
+            current_question: The current question being asked
+            current_author: The author of the current question
+            
+        Returns:
+            List of properly formatted chat completion messages
+        """
+        messages = []
+        
+        messages.append(ChatCompletionSystemMessageParam(
+            role="system",
+            content="You are a helpful AI assistant in a Discord thread. You have access to the conversation history and should provide relevant, helpful responses based on the context."
+        ))
+        
+        for msg in context_messages:
+            if not (content := msg.content.strip()):
+                continue
+                
+            if len(content) > 1000:
+                content = content[:1000] + "..."
+            
+            if msg.author.bot:
+                messages.append(ChatCompletionAssistantMessageParam(
+                    role="assistant",
+                    content=content
+                ))
+            else:
+                messages.append(ChatCompletionUserMessageParam(
+                    role="user",
+                    content=f"{msg.author.display_name}: {content}"
+                ))
+        
+        messages.append(ChatCompletionUserMessageParam(
+            role="user",
+            content=f"{current_author.display_name}: {current_question}"
+        ))
+        
+        return messages
 
     @factcheck.error
     async def factcheck_error(self, ctx: Context, error: Exception):

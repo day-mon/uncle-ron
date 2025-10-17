@@ -1,5 +1,6 @@
 import asyncio
 import io
+import traceback
 from functools import cached_property
 
 import discord
@@ -577,24 +578,26 @@ class Stocks(commands.GroupCog, name="stock"):
 
         if isinstance(event, RunItemStreamEvent):
             item = event.item
-            if item.type == "tool_call_item" and hasattr(item.raw_item, "id"):
+            if item.type == "tool_call_item" and item.raw_item.id:
                 return StreamEventResult(
                     tool_id=item.raw_item.id,
-                    tool_name=getattr(item.raw_item, "name", ""),
-                    tool_args=getattr(item.raw_item, "arguments", None),
+                    tool_name=item.raw_item.name or None,
+                    tool_args=item.raw_item.arguments or None,
+
                 )
 
         elif isinstance(event, RawResponsesStreamEvent):
-            response_data = getattr(event.data, "delta", None)
-            if response_data:
-                return StreamEventResult(text_delta=response_data)
+            if (delta_value := event.data.delta) is not None:
+                return StreamEventResult(text_delta=delta_value)
 
-            response_obj = getattr(event.data, "response", None)
-            if response_obj and hasattr(response_obj, "output"):
-                text_chunks = [
-                    o.get("text", "") for o in response_obj.output if "text" in o
-                ]
-                return StreamEventResult(text_delta="".join(text_chunks))
+            try:
+                if (response_obj := event.data.response) is not None and response_obj.output is not None:
+                    text_chunks = [
+                        o.get("text", "") for o in response_obj.output if "text" in o
+                    ]
+                    return StreamEventResult(text_delta="".join(text_chunks))
+            except AttributeError:
+                pass
 
         return StreamEventResult()
 
